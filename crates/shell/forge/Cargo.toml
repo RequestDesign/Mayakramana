@@ -1,0 +1,28 @@
+[package]
+name = "synthforge-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Командная оболочка: запуск генерации и просмотр результата"
+
+[[bin]]
+name = "forge"
+path = "src/main.rs"
+
+[dependencies]
+synthforge-params = { workspace = true }
+synthforge-ports = { workspace = true }
+synthforge-refdata = { workspace = true }
+synthforge-textsim = { workspace = true }
+synthforge-llm = { workspace = true }
+synthforge-store = { workspace = true }
+synthforge-engine = { path = "../engine" }
+synthforge-gen-person = { path = "../../generators/gen-person" }
+synthforge-gen-object = { path = "../../generators/gen-object" }
+synthforge-compose-center = { path = "../../generators/compose-center" }
+
+tokio = { workspace = true, features = ["full"] }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

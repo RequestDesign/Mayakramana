@@ -1,0 +1,175 @@
+{
+  "name": "human-core",
+  "version": 1,
+  "description": "Общечеловеческие параметры. Одни на все роли: врача, консультанта, психолога, руководителя. Роль вправе сузить любой диапазон, переобъявив параметр с тем же ключом.",
+  "params": [
+    {
+      "key": "gender",
+      "title": "Пол",
+      "group": "базовые",
+      "identity": true,
+      "usage": "both",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "мужской", "weight": 52},
+          {"value": "женский", "weight": 48}
+        ]
+      }
+    },
+    {
+      "key": "age",
+      "title": "Возраст",
+      "group": "базовые",
+      "identity": true,
+      "usage": "both",
+      "domain": {"kind": "int", "min": 26, "max": 68}
+    },
+    {
+      "key": "ethnicity",
+      "title": "Происхождение",
+      "group": "базовые",
+      "identity": true,
+      "usage": "both",
+      "mention": "background",
+      "directive": "происхождение (определяет имя и внешность, в тексте не упоминать)",
+      "note": "Влияет и на имя, и на внешность, поэтому usage=both. Прямо называть нельзя: «специалист украинского происхождения» — не то, что пишут в карточке врача.",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "русское", "weight": 70},
+          {"value": "татарское", "weight": 5},
+          {"value": "украинское", "weight": 4},
+          {"value": "армянское", "weight": 3},
+          {"value": "башкирское", "weight": 2},
+          {"value": "белорусское", "weight": 2},
+          {"value": "чувашское", "weight": 2},
+          {"value": "еврейское", "weight": 2},
+          {"value": "грузинское", "weight": 1},
+          {"value": "казахское", "weight": 1},
+          {"value": "смешанное", "weight": 6}
+        ]
+      }
+    },
+    {
+      "key": "home_region",
+      "title": "Родной регион",
+      "group": "базовые",
+      "identity": true,
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "Москва и область", "weight": 14},
+          {"value": "Санкт-Петербург и область", "weight": 8},
+          {"value": "Центральная Россия", "weight": 16},
+          {"value": "Поволжье", "weight": 14},
+          {"value": "Урал", "weight": 12},
+          {"value": "Юг России", "weight": 12},
+          {"value": "Сибирь", "weight": 12},
+          {"value": "Северо-Запад", "weight": 6},
+          {"value": "Дальний Восток", "weight": 6}
+        ]
+      }
+    },
+    {
+      "key": "marital_status",
+      "title": "Семейное положение",
+      "group": "семья",
+      "mention": "background",
+      "directive": "семейное положение (фон, в карточке специалиста не упоминать)",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "женат/замужем", "weight": 55},
+          {"value": "в разводе", "weight": 22},
+          {"value": "не женат/не замужем", "weight": 18},
+          {"value": "вдовец/вдова", "weight": 5}
+        ]
+      }
+    },
+    {
+      "key": "children_count",
+      "title": "Детей",
+      "group": "семья",
+      "mention": "background",
+      "directive": "детей (фон, в тексте не упоминать)",
+      "note": "Влияет на специализацию: многодетность повышает шанс работы с подростками. Веса заданы явно — равномерное распределение сделало бы многодетными 40% популяции.",
+      "domain": {"kind": "int", "min": 0, "max": 4, "weights": [26, 32, 28, 10, 4]}
+    },
+    {
+      "key": "temperament",
+      "title": "Склад характера",
+      "group": "личность",
+      "identity": true,
+      "usage": "both",
+      "mention": "background",
+      "directive": "тон повествования (показать интонацией, не называть)",
+      "note": "Должен чувствоваться в тоне текста, а не быть заявлен фразой «спокойный и немногословный».",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "спокойный, немногословный", "weight": 22},
+          {"value": "деятельный, прямой", "weight": 20},
+          {"value": "мягкий, участливый", "weight": 20},
+          {"value": "сдержанный, методичный", "weight": 20},
+          {"value": "ироничный, лёгкий в общении", "weight": 10},
+          {"value": "жёсткий, требовательный", "weight": 8}
+        ]
+      }
+    },
+    {
+      "key": "speech_style",
+      "title": "Манера речи",
+      "group": "личность",
+      "mention": "background",
+      "directive": "как звучит цитата (применить, не описывать)",
+      "note": "Задаёт, как написана цитата, а не сообщается отдельным предложением.",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "простая, без терминов", "weight": 30},
+          {"value": "профессиональная, с терминами", "weight": 30},
+          {"value": "образная, с примерами из практики", "weight": 25},
+          {"value": "суховатая, конкретная", "weight": 15}
+        ]
+      }
+    }
+  ],
+  "hard": [
+    {
+      "name": "дети_не_раньше_совершеннолетия",
+      "expr": "children_count == 0 or age >= 24",
+      "message": "детей не может быть у человека моложе 24 лет в этой популяции"
+    },
+    {
+      "name": "вдовство_не_в_молодости",
+      "expr": "marital_status != 'вдовец/вдова' or age >= 40",
+      "message": "вдовство в этой популяции не моделируется раньше 40 лет"
+    }
+  ],
+  "soft": [
+    {
+      "name": "с_возрастом_больше_детей",
+      "when": "age >= 45",
+      "then": [
+        {"kind": "range", "param": "children_count", "min": 1.0}
+      ]
+    },
+    {
+      "name": "молодые_чаще_не_женаты",
+      "when": "age <= 32",
+      "then": [
+        {"kind": "weight", "param": "marital_status", "value": "не женат/не замужем", "factor": 3.0},
+        {"kind": "weight", "param": "marital_status", "value": "в разводе", "factor": 0.3}
+      ]
+    },
+    {
+      "name": "к_зрелым_годам_редко_остаются_одни",
+      "when": "age >= 45",
+      "then": [
+        {"kind": "weight", "param": "marital_status", "value": "не женат/не замужем", "factor": 0.35},
+        {"kind": "weight", "param": "marital_status", "value": "в разводе", "factor": 1.6}
+      ]
+    }
+  ]
+}

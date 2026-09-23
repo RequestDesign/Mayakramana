@@ -1,0 +1,16 @@
+[package]
+name = "synthforge-compose-center"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Сборка центра из готового: здание, программа, руководитель, команда под специализацию"
+
+[dependencies]
+synthforge-params = { workspace = true }
+synthforge-ports = { workspace = true }
+synthforge-gen-object = { path = "../gen-object" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+rand = { workspace = true }

@@ -1,0 +1,37 @@
+{
+  "name": "object-center",
+  "version": 1,
+  "description": "Центр — составная сущность. Ни один параметр здесь не сэмплируется: всё берётся из уже созданных здания, программы и людей. Словарь описывает только, как эти данные подаются модели, когда она пишет текст о центре.",
+  "params": [
+    {"key": "place_key", "title": "Здание", "usage": "store_only", "identity": true, "domain": {"kind": "derived"}},
+    {"key": "program_key", "title": "Программа", "usage": "store_only", "domain": {"kind": "derived"}},
+    {"key": "director_key", "title": "Руководитель", "usage": "store_only", "domain": {"kind": "derived"}},
+    {"key": "staff_keys", "title": "Команда", "usage": "store_only", "domain": {"kind": "derived"}},
+
+    {"key": "segment", "title": "Ценовой уровень", "group": "центр", "mention": "background",
+     "directive": "ценовой уровень (должен чувствоваться, слово не называть)", "domain": {"kind": "derived"}},
+    {"key": "focus", "title": "Специализация", "group": "центр", "mention": "required", "domain": {"kind": "derived"}},
+    {"key": "region", "title": "Регион", "group": "место", "domain": {"kind": "derived"}},
+    {"key": "setting", "title": "Окружение", "group": "место", "domain": {"kind": "derived"}},
+    {"key": "distance_km", "title": "До ближайшего города, км", "group": "место", "domain": {"kind": "derived"}},
+    {"key": "building_type", "title": "Здание", "group": "место", "domain": {"kind": "derived"}},
+    {"key": "capacity", "title": "Мест", "group": "место", "domain": {"kind": "derived"}},
+    {"key": "room_type", "title": "Размещение", "group": "место", "domain": {"kind": "derived"}},
+    {"key": "amenities", "title": "Что есть", "group": "место", "domain": {"kind": "derived"}},
+
+    {"key": "program_title", "title": "Программа", "group": "программа", "mention": "required", "domain": {"kind": "derived"}},
+    {"key": "program_approach", "title": "Основа программы", "group": "программа", "domain": {"kind": "derived"}},
+    {"key": "program_duration", "title": "Длительность", "group": "программа", "domain": {"kind": "derived"}},
+
+    {"key": "director_name", "title": "Руководитель", "group": "люди", "mention": "required", "domain": {"kind": "derived"}},
+    {"key": "director_background", "title": "Путь руководителя", "group": "люди", "domain": {"kind": "derived"}},
+    {"key": "director_motivation", "title": "Почему он этим занимается", "group": "люди", "domain": {"kind": "derived"}},
+    {"key": "team", "title": "Команда", "group": "люди", "domain": {"kind": "derived"}},
+
+    {"key": "center_name", "title": "Название", "group": "центр", "mention": "required",
+     "note": "Выбирается кодом из справочника названий, модель его только использует.",
+     "domain": {"kind": "derived"}},
+    {"key": "about", "title": "О центре", "group": "текст", "domain": {"kind": "derived"}},
+    {"key": "approach_text", "title": "Как здесь работают", "group": "текст", "domain": {"kind": "derived"}}
+  ]
+}

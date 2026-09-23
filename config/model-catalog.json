@@ -1,0 +1,62 @@
+{
+  "_комментарий": [
+    "Каталог моделей и цен. Единственный источник стоимости для учёта расхода.",
+    "",
+    "Поле verified пустое = цифры НЕ СВЕРЕНЫ с консолью провайдера. Приложение",
+    "сообщит об этом при старте. Значения ниже — порядок величины, чтобы",
+    "бюджетный потолок работал хотя бы приблизительно; перед первым массовым",
+    "прогоном их нужно сверить и проставить дату в verified.",
+    "",
+    "Модель, которой нет в каталоге, использовать нельзя: клиент к ней не",
+    "создастся. Это намеренно — иначе расход посчитался бы нулём и потолок",
+    "бюджета не сработал бы."
+  ],
+  "models": {
+    "grok-4-fast": {
+      "id": "grok-4-fast",
+      "provider": "xai",
+      "input_per_mtok": 0.20,
+      "output_per_mtok": 0.50,
+      "supports_effort": false,
+      "supports_schema": true,
+      "verified": ""
+    },
+    "grok-4": {
+      "id": "grok-4",
+      "provider": "xai",
+      "input_per_mtok": 3.00,
+      "output_per_mtok": 15.00,
+      "supports_effort": true,
+      "supports_schema": true,
+      "verified": ""
+    },
+    "gpt-5": {
+      "id": "gpt-5",
+      "provider": "openai",
+      "input_per_mtok": 1.25,
+      "output_per_mtok": 10.00,
+      "supports_effort": true,
+      "supports_schema": true,
+      "verified": ""
+    },
+    "gpt-5-mini": {
+      "id": "gpt-5-mini",
+      "provider": "openai",
+      "input_per_mtok": 0.25,
+      "output_per_mtok": 2.00,
+      "supports_effort": true,
+      "supports_schema": true,
+      "verified": ""
+    },
+    "gpt-image-1": {
+      "id": "gpt-image-1",
+      "provider": "openai",
+      "input_per_mtok": 0.0,
+      "output_per_mtok": 0.0,
+      "per_image": 0.04,
+      "supports_effort": false,
+      "supports_schema": false,
+      "verified": ""
+    }
+  }
+}

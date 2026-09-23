@@ -1,0 +1,185 @@
+{
+  "name": "role-psychologist",
+  "version": 1,
+  "description": "Психолог реабилитационного центра. Между врачом и консультантом: профильное образование обязательно, но медикаментов не назначает. Отличается набором методик, а не степенью.",
+  "extends": ["human-core.json", "human-visual.json"],
+  "params": [
+    {
+      "key": "education",
+      "title": "Образование",
+      "group": "образование",
+      "identity": true,
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "клиническая психология, специалитет", "weight": 38},
+          {"value": "психология, магистратура", "weight": 30},
+          {"value": "переподготовка на психолога после другой профессии", "weight": 18},
+          {"value": "кандидат психологических наук", "weight": 14}
+        ]
+      }
+    },
+    {
+      "key": "alma_mater",
+      "title": "Где учился",
+      "group": "образование",
+      "note": "Описательно, без названий конкретных вузов — по той же причине, что и у врача.",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "столичный университет", "weight": 26},
+          {"value": "университет в Санкт-Петербурге", "weight": 14},
+          {"value": "университет в Поволжье", "weight": 16},
+          {"value": "университет на Урале", "weight": 14},
+          {"value": "университет в Сибири", "weight": 14},
+          {"value": "университет на юге России", "weight": 16}
+        ]
+      }
+    },
+    {
+      "key": "methods",
+      "title": "Методы работы",
+      "group": "практика",
+      "identity": true,
+      "note": "Множественный выбор: практикующий психолог почти всегда сочетает несколько подходов.",
+      "domain": {
+        "kind": "multi_enum",
+        "min_pick": 1,
+        "max_pick": 3,
+        "variants": [
+          {"value": "когнитивно-поведенческая терапия", "weight": 30},
+          {"value": "мотивационное интервьюирование", "weight": 22},
+          {"value": "диалектическая поведенческая терапия", "weight": 10},
+          {"value": "семейная системная терапия", "weight": 14},
+          {"value": "гештальт-терапия", "weight": 10},
+          {"value": "работа по программе двенадцати шагов", "weight": 14}
+        ]
+      }
+    },
+    {
+      "key": "experience_years",
+      "title": "Стаж",
+      "group": "опыт",
+      "identity": true,
+      "domain": {
+        "kind": "int", "min": 1, "max": 35,
+        "weights": [6, 8, 9, 9, 9, 8, 8, 7, 6, 6, 5, 5, 4, 4, 3.5, 3, 3, 2.5, 2.5, 2, 2, 1.8, 1.6, 1.4, 1.2, 1, 1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.5, 0.4, 0.4]
+      }
+    },
+    {
+      "key": "addiction_years",
+      "title": "Лет в работе с зависимостями",
+      "group": "опыт",
+      "note": "Может быть меньше общего стажа: многие приходят в аддиктологию из общей практики.",
+      "domain": {"kind": "int", "min": 1, "max": 30}
+    },
+    {
+      "key": "group_therapy",
+      "title": "Ведёт групповую терапию",
+      "group": "практика",
+      "domain": {"kind": "bool", "p_true": 0.7}
+    },
+    {
+      "key": "family_therapy",
+      "title": "Работает с семьями",
+      "group": "практика",
+      "domain": {"kind": "bool", "p_true": 0.5}
+    },
+    {
+      "key": "diagnostics",
+      "title": "Проводит психодиагностику",
+      "group": "практика",
+      "domain": {"kind": "bool", "p_true": 0.6}
+    },
+    {
+      "key": "supervisor",
+      "title": "Супервизор",
+      "group": "практика",
+      "domain": {"kind": "bool", "p_true": 0.18}
+    },
+    {
+      "key": "client_focus",
+      "title": "С кем работает",
+      "group": "практика",
+      "mention": "background",
+      "directive": "о ком писать (показать через описание работы, не называть категорией)",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "взрослые", "weight": 56},
+          {"value": "подростки и молодёжь", "weight": 18},
+          {"value": "созависимые родственники", "weight": 16},
+          {"value": "смешанно", "weight": 10}
+        ]
+      }
+    },
+    {
+      "key": "full_name",
+      "title": "ФИО",
+      "group": "базовые",
+      "identity": true,
+      "mention": "required",
+      "domain": {"kind": "derived"}
+    },
+    {"key": "biography", "title": "Биография", "group": "текст", "domain": {"kind": "derived"}},
+    {"key": "professional_path", "title": "Профессиональный путь", "group": "текст", "domain": {"kind": "derived"}},
+    {"key": "quote", "title": "Цитата", "group": "текст", "domain": {"kind": "derived"}}
+  ],
+  "hard": [
+    {
+      "name": "стаж_не_больше_возможного",
+      "expr": "experience_years <= age - 22",
+      "message": "стаж превышает возможный: психологическое образование занимает не меньше пяти лет"
+    },
+    {
+      "name": "аддиктология_внутри_стажа",
+      "expr": "addiction_years <= experience_years",
+      "message": "в работе с зависимостями дольше, чем в профессии вообще"
+    },
+    {
+      "name": "кандидатская_не_рано",
+      "expr": "education != 'кандидат психологических наук' or age >= 30",
+      "message": "кандидатская степень раньше 30 лет в этой популяции не моделируется"
+    },
+    {
+      "name": "супервизия_требует_опыта",
+      "expr": "not supervisor or experience_years >= 7",
+      "message": "супервизор со стажем меньше семи лет"
+    },
+    {
+      "name": "переподготовка_не_в_юности",
+      "expr": "education != 'переподготовка на психолога после другой профессии' or age >= 30",
+      "message": "переподготовка после другой профессии раньше 30 лет"
+    }
+  ],
+  "soft": [
+    {
+      "name": "стаж_растёт_с_возрастом",
+      "when": "age >= 45",
+      "then": [{"kind": "range", "param": "experience_years", "min": 6.0}]
+    },
+    {
+      "name": "у_молодых_стаж_небольшой",
+      "when": "age <= 32",
+      "then": [{"kind": "range", "param": "experience_years", "max": 8.0}]
+    },
+    {
+      "name": "семейные_методы_к_работе_с_семьёй",
+      "when": "has(methods, 'семейная системная терапия')",
+      "then": [
+        {"kind": "weight", "param": "family_therapy", "value": "true", "factor": 8.0},
+        {"kind": "weight", "param": "client_focus", "value": "созависимые родственники", "factor": 3.0}
+      ]
+    },
+    {
+      "name": "опытные_супервизируют",
+      "when": "experience_years >= 15",
+      "then": [{"kind": "weight", "param": "supervisor", "value": "true", "factor": 3.0}]
+    },
+    {
+      "name": "многодетность_к_подросткам",
+      "when": "children_count >= 3",
+      "then": [{"kind": "weight", "param": "client_focus", "value": "подростки и молодёжь", "factor": 4.0}]
+    }
+  ]
+}

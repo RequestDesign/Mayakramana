@@ -1,0 +1,13 @@
+[package]
+name = "synthforge-refdata"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Справочники реального мира: имена, регионы, учреждения"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+rand = { workspace = true }

@@ -1,0 +1,307 @@
+{
+  "name": "human-visual",
+  "version": 1,
+  "description": "Внешность и физиологическое состояние. Отдельный словарь, потому что лицо не зависит от того, врач это, консультант или психолог. Половина параметров существует ради одной задачи: не дать модели выдать вылизанный стоковый портрет.",
+  "params": [
+    {
+      "key": "build",
+      "title": "Телосложение",
+      "group": "внешность",
+      "usage": "visual",
+      "identity": true,
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "худощавое", "weight": 22},
+          {"value": "обычное", "weight": 34},
+          {"value": "плотное", "weight": 28},
+          {"value": "полное", "weight": 16}
+        ]
+      }
+    },
+    {
+      "key": "face_shape",
+      "title": "Форма лица",
+      "group": "внешность",
+      "usage": "visual",
+      "identity": true,
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "круглое", "weight": 20},
+          {"value": "овальное", "weight": 24},
+          {"value": "вытянутое", "weight": 18},
+          {"value": "квадратное, тяжёлая челюсть", "weight": 20},
+          {"value": "узкое, скуластое", "weight": 18}
+        ]
+      }
+    },
+    {
+      "key": "face_asymmetry",
+      "title": "Асимметрия лица",
+      "group": "реалистичность",
+      "usage": "visual",
+      "note": "Варианта «идеально симметричное» здесь нет намеренно. Именно симметрия выдаёт сгенерированное лицо.",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "едва заметная", "weight": 30},
+          {"value": "умеренная: один глаз чуть выше", "weight": 30},
+          {"value": "заметная: кривоватая улыбка", "weight": 22},
+          {"value": "заметная: нос с лёгким искривлением", "weight": 18}
+        ]
+      }
+    },
+    {
+      "key": "hair_color",
+      "title": "Цвет волос",
+      "group": "внешность",
+      "usage": "visual",
+      "identity": true,
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "тёмно-русый", "weight": 26},
+          {"value": "светло-русый", "weight": 18},
+          {"value": "каштановый", "weight": 18},
+          {"value": "чёрный", "weight": 14},
+          {"value": "с проседью", "weight": 14},
+          {"value": "седой", "weight": 10}
+        ]
+      }
+    },
+    {
+      "key": "hair_state",
+      "title": "Состояние волос",
+      "group": "реалистичность",
+      "usage": "visual",
+      "note": "Идеальной укладки в списке нет — по той же причине, что и идеальной симметрии.",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "аккуратные, но без укладки", "weight": 34},
+          {"value": "слегка растрёпанные", "weight": 26},
+          {"value": "короткая стрижка, отросшая", "weight": 20},
+          {"value": "редеющие на макушке", "weight": 12},
+          {"value": "заметные залысины", "weight": 8}
+        ]
+      }
+    },
+    {
+      "key": "facial_hair",
+      "title": "Растительность на лице",
+      "group": "внешность",
+      "usage": "visual",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "нет", "weight": 45},
+          {"value": "лёгкая щетина", "weight": 20},
+          {"value": "усы", "weight": 8},
+          {"value": "короткая борода", "weight": 17},
+          {"value": "густая борода", "weight": 10}
+        ]
+      }
+    },
+    {
+      "key": "eye_bags",
+      "title": "Мешки под глазами",
+      "group": "реалистичность",
+      "usage": "visual",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "нет", "weight": 30},
+          {"value": "лёгкие", "weight": 40},
+          {"value": "заметные", "weight": 30}
+        ]
+      }
+    },
+    {
+      "key": "complexion",
+      "title": "Цвет лица",
+      "group": "реалистичность",
+      "usage": "visual",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "обычный", "weight": 38},
+          {"value": "бледноватый", "weight": 22},
+          {"value": "с румянцем", "weight": 16},
+          {"value": "обветренный", "weight": 14},
+          {"value": "землистый, уставший", "weight": 10}
+        ]
+      }
+    },
+    {
+      "key": "skin_marks",
+      "title": "Особые приметы кожи",
+      "group": "реалистичность",
+      "usage": "visual",
+      "domain": {
+        "kind": "multi_enum",
+        "min_pick": 0,
+        "max_pick": 2,
+        "variants": [
+          {"value": "родинка на щеке", "weight": 14},
+          {"value": "несколько родинок на шее", "weight": 12},
+          {"value": "веснушки", "weight": 10},
+          {"value": "мимические морщины у глаз", "weight": 24},
+          {"value": "носогубные складки", "weight": 22},
+          {"value": "небольшой шрам у брови", "weight": 6},
+          {"value": "неровная кожа, расширенные поры", "weight": 12}
+        ]
+      }
+    },
+    {
+      "key": "glasses",
+      "title": "Очки",
+      "group": "внешность",
+      "usage": "visual",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "нет", "weight": 58},
+          {"value": "тонкая металлическая оправа", "weight": 18},
+          {"value": "плотная тёмная оправа", "weight": 16},
+          {"value": "очки для чтения на шнурке", "weight": 8}
+        ]
+      }
+    },
+    {
+      "key": "expression",
+      "title": "Выражение лица",
+      "group": "реалистичность",
+      "usage": "visual",
+      "note": "Широкой дежурной улыбки в списке нет. Именно она превращает портрет в сток.",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "спокойное, нейтральное", "weight": 30},
+          {"value": "сдержанная полуулыбка", "weight": 22},
+          {"value": "внимательный, чуть усталый взгляд", "weight": 20},
+          {"value": "сосредоточенное", "weight": 16},
+          {"value": "доброжелательное, но без улыбки", "weight": 12}
+        ]
+      }
+    },
+    {
+      "key": "clothing",
+      "title": "Одежда",
+      "group": "внешность",
+      "usage": "visual",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "медицинский халат поверх рубашки", "weight": 24},
+          {"value": "рубашка без галстука", "weight": 22},
+          {"value": "свитер или джемпер", "weight": 20},
+          {"value": "поло", "weight": 12},
+          {"value": "пиджак без галстука", "weight": 12},
+          {"value": "медицинский костюм", "weight": 10}
+        ]
+      }
+    },
+    {
+      "key": "photo_setting",
+      "title": "Обстановка снимка",
+      "group": "реалистичность",
+      "usage": "visual",
+      "note": "Разнообразие фона задаётся параметром. Иначе на всех портретах окажется один и тот же фон.",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "рабочий кабинет, книжный стеллаж позади", "weight": 20},
+          {"value": "у окна, дневной свет сбоку", "weight": 20},
+          {"value": "светлый коридор учреждения", "weight": 16},
+          {"value": "однотонная стена, ничего лишнего", "weight": 16},
+          {"value": "кабинет с рабочим столом в расфокусе", "weight": 16},
+          {"value": "на улице у входа в здание", "weight": 12}
+        ]
+      }
+    },
+    {
+      "key": "photo_quality",
+      "title": "Характер съёмки",
+      "group": "реалистичность",
+      "usage": "visual",
+      "note": "Студийная фотосессия намеренно редка: она и даёт ту самую вылизанность.",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "любительский портрет, естественный свет", "weight": 38},
+          {"value": "снято на телефон, слегка неровный кадр", "weight": 26},
+          {"value": "корпоративное фото среднего качества", "weight": 24},
+          {"value": "профессиональная съёмка", "weight": 12}
+        ]
+      }
+    }
+  ],
+  "hard": [
+    {
+      "name": "седина_не_в_молодости",
+      "expr": "hair_color != 'седой' or age >= 48",
+      "message": "полностью седые волосы в этой популяции не раньше 48 лет"
+    }
+  ],
+  "soft": [
+    {
+      "name": "у_женщин_нет_бороды",
+      "when": "gender == 'женский'",
+      "then": [
+        {"kind": "force", "param": "facial_hair", "value": "нет"}
+      ]
+    },
+    {
+      "name": "с_возрастом_седеют",
+      "when": "age >= 52",
+      "then": [
+        {"kind": "weight", "param": "hair_color", "value": "с проседью", "factor": 3.0},
+        {"kind": "weight", "param": "hair_color", "value": "седой", "factor": 4.0},
+        {"kind": "weight", "param": "hair_color", "value": "чёрный", "factor": 0.3}
+      ]
+    },
+    {
+      "name": "у_молодых_волосы_на_месте",
+      "when": "age <= 38",
+      "then": [
+        {"kind": "weight", "param": "hair_state", "value": "заметные залысины", "factor": 0.15},
+        {"kind": "weight", "param": "hair_state", "value": "редеющие на макушке", "factor": 0.3}
+      ]
+    },
+    {
+      "name": "у_женщин_реже_залысины",
+      "when": "gender == 'женский'",
+      "then": [
+        {"kind": "weight", "param": "hair_state", "value": "заметные залысины", "factor": 0.05},
+        {"kind": "weight", "param": "hair_state", "value": "редеющие на макушке", "factor": 0.1},
+        {"kind": "weight", "param": "hair_state", "value": "короткая стрижка, отросшая", "factor": 0.4}
+      ]
+    },
+    {
+      "name": "возрастные_следы",
+      "when": "age >= 50",
+      "then": [
+        {"kind": "weight", "param": "skin_marks", "value": "мимические морщины у глаз", "factor": 2.5},
+        {"kind": "weight", "param": "skin_marks", "value": "носогубные складки", "factor": 2.5},
+        {"kind": "weight", "param": "skin_marks", "value": "веснушки", "factor": 0.3}
+      ]
+    },
+    {
+      "name": "с_возрастом_хуже_спят",
+      "when": "age >= 50",
+      "then": [
+        {"kind": "weight", "param": "eye_bags", "value": "заметные", "factor": 2.0},
+        {"kind": "weight", "param": "eye_bags", "value": "нет", "factor": 0.4}
+      ]
+    },
+    {
+      "name": "зрение_с_возрастом",
+      "when": "age >= 45",
+      "then": [
+        {"kind": "weight", "param": "glasses", "value": "нет", "factor": 0.5},
+        {"kind": "weight", "param": "glasses", "value": "очки для чтения на шнурке", "factor": 2.5}
+      ]
+    }
+  ]
+}

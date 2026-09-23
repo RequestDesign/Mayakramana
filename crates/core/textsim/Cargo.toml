@@ -1,0 +1,9 @@
+[package]
+name = "synthforge-textsim"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Текстовая похожесть: шинглы, коэффициент Жаккара, индекс для поиска близких"
+
+[dependencies]

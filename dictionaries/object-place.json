@@ -1,0 +1,282 @@
+{
+  "name": "object-place",
+  "version": 1,
+  "description": "Здание центра с территорией. Ценовой уровень — главный параметр: от него зависят и планировка, и удобства, и где стоит дом. Бюджетный центр на берегу озера с одноместными палатами и бассейном — неправдоподобен.",
+  "params": [
+    {
+      "key": "segment",
+      "title": "Ценовой уровень",
+      "group": "уровень",
+      "identity": true,
+      "mention": "background",
+      "directive": "ценовой уровень (должен чувствоваться по описанию, слово не называть)",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "эконом", "weight": 45},
+          {"value": "средний", "weight": 40},
+          {"value": "премиум", "weight": 15}
+        ]
+      }
+    },
+    {
+      "key": "region",
+      "title": "Регион",
+      "group": "место",
+      "identity": true,
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "Подмосковье", "weight": 22},
+          {"value": "Ленинградская область", "weight": 10},
+          {"value": "Центральная Россия", "weight": 14},
+          {"value": "Поволжье", "weight": 14},
+          {"value": "Урал", "weight": 12},
+          {"value": "Юг России", "weight": 12},
+          {"value": "Сибирь", "weight": 12},
+          {"value": "Северо-Запад", "weight": 4}
+        ]
+      }
+    },
+    {
+      "key": "building_type",
+      "title": "Что за здание",
+      "group": "дом",
+      "identity": true,
+      "usage": "both",
+      "note": "Уходит и в текст, и в снимок. Первая версия отдавала его только в текст — на фото «частного коттеджа» вышло казённое трёхэтажное здание.",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "частный коттедж", "weight": 30},
+          {"value": "переоборудованная база отдыха", "weight": 22},
+          {"value": "загородная усадьба", "weight": 10},
+          {"value": "новый корпус", "weight": 14},
+          {"value": "бывший санаторный корпус", "weight": 10},
+          {"value": "дом в пригороде", "weight": 14}
+        ]
+      }
+    },
+    {
+      "key": "year_built",
+      "title": "Год постройки",
+      "group": "дом",
+      "domain": {"kind": "int", "min": 1965, "max": 2022}
+    },
+    {
+      "key": "renovated",
+      "title": "Недавний ремонт",
+      "group": "дом",
+      "domain": {"kind": "bool", "p_true": 0.5}
+    },
+    {
+      "key": "floors",
+      "title": "Этажей",
+      "group": "дом",
+      "usage": "both",
+      "domain": {"kind": "int", "min": 1, "max": 3, "weights": [25, 55, 20]}
+    },
+    {
+      "key": "capacity",
+      "title": "Мест для проживания",
+      "group": "дом",
+      "identity": true,
+      "domain": {"kind": "int", "min": 8, "max": 60}
+    },
+    {
+      "key": "room_type",
+      "title": "Размещение",
+      "group": "дом",
+      "usage": "both",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "общие комнаты на 4-6 человек", "weight": 30},
+          {"value": "комнаты на 2-3 человека", "weight": 40},
+          {"value": "двухместные комнаты", "weight": 20},
+          {"value": "одноместные комнаты", "weight": 10}
+        ]
+      }
+    },
+    {
+      "key": "amenities",
+      "title": "Что есть в доме и на участке",
+      "group": "дом",
+      "identity": true,
+      "domain": {
+        "kind": "multi_enum",
+        "min_pick": 2,
+        "max_pick": 5,
+        "variants": [
+          {"value": "комната для групповых занятий", "weight": 40},
+          {"value": "общая столовая", "weight": 34},
+          {"value": "спортзал", "weight": 16},
+          {"value": "уличные тренажёры", "weight": 14},
+          {"value": "баня", "weight": 16},
+          {"value": "бассейн", "weight": 5},
+          {"value": "мастерская", "weight": 10},
+          {"value": "огород и теплица", "weight": 12},
+          {"value": "библиотека", "weight": 10}
+        ]
+      }
+    },
+    {
+      "key": "setting",
+      "title": "Окружение",
+      "group": "место",
+      "identity": true,
+      "usage": "both",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "сосновый лес", "weight": 22},
+          {"value": "смешанный лес", "weight": 18},
+          {"value": "берег озера", "weight": 12},
+          {"value": "берег реки", "weight": 12},
+          {"value": "поля и перелески", "weight": 12},
+          {"value": "окраина посёлка", "weight": 14},
+          {"value": "пригород", "weight": 10}
+        ]
+      }
+    },
+    {
+      "key": "distance_km",
+      "title": "До ближайшего города, км",
+      "group": "место",
+      "domain": {"kind": "int", "min": 5, "max": 120}
+    },
+    {
+      "key": "facade",
+      "title": "Фасад",
+      "group": "вид",
+      "usage": "visual",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "красный кирпич", "weight": 24},
+          {"value": "белый силикатный кирпич", "weight": 14},
+          {"value": "деревянный брус", "weight": 20},
+          {"value": "светлая штукатурка", "weight": 20},
+          {"value": "сайдинг", "weight": 22}
+        ]
+      }
+    },
+    {
+      "key": "condition",
+      "title": "Состояние",
+      "group": "вид",
+      "usage": "both",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "аккуратный, но видны годы", "weight": 40},
+          {"value": "свежий ремонт", "weight": 30},
+          {"value": "ухоженный, обжитой", "weight": 30}
+        ]
+      }
+    },
+    {
+      "key": "interior",
+      "title": "Интерьер",
+      "group": "вид",
+      "usage": "visual",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "простой, крашеные стены, линолеум", "weight": 30},
+          {"value": "дерево, вагонка, деревянная мебель", "weight": 26},
+          {"value": "современный простой, светлые стены", "weight": 30},
+          {"value": "гостиничный, ламинат, мягкий свет", "weight": 14}
+        ]
+      }
+    },
+    {
+      "key": "season",
+      "title": "Время года на снимках",
+      "group": "вид",
+      "usage": "visual",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "лето", "weight": 34},
+          {"value": "ранняя осень", "weight": 26},
+          {"value": "зима, снег", "weight": 22},
+          {"value": "поздняя весна", "weight": 18}
+        ]
+      }
+    },
+    {"key": "description", "title": "Описание", "group": "текст", "domain": {"kind": "derived"}},
+    {"key": "territory", "title": "Территория", "group": "текст", "domain": {"kind": "derived"}},
+    {"key": "rooms", "title": "Комнаты", "group": "текст", "domain": {"kind": "derived"}}
+  ],
+  "hard": [
+    {"name": "бассейн_не_в_экономе", "expr": "not has(amenities, 'бассейн') or segment != 'эконом'", "message": "бассейн в бюджетном центре"},
+    {"name": "одноместные_не_в_экономе", "expr": "room_type != 'одноместные комнаты' or segment != 'эконом'", "message": "одноместные комнаты в бюджетном центре"},
+    {"name": "общие_не_в_премиуме", "expr": "room_type != 'общие комнаты на 4-6 человек' or segment != 'премиум'", "message": "общие комнаты на шестерых в дорогом центре"},
+    {"name": "новый_корпус_новый", "expr": "building_type != 'новый корпус' or year_built >= 2010", "message": "новый корпус постройки раньше 2010 года"},
+    {"name": "санаторий_советский", "expr": "building_type != 'бывший санаторный корпус' or year_built <= 1992", "message": "бывший санаторный корпус постсоветской постройки"},
+    {"name": "премиум_небольшой", "expr": "segment != 'премиум' or capacity <= 25", "message": "дорогой центр больше чем на 25 мест"},
+    {"name": "одноэтажный_невелик", "expr": "floors > 1 or capacity <= 20", "message": "одноэтажный дом больше чем на 20 мест"},
+    {"name": "коттедж_невелик", "expr": "building_type != 'частный коттедж' or capacity <= 24", "message": "частный коттедж больше чем на 24 места"},
+    {"name": "пригород_близко", "expr": "not in(setting, 'окраина посёлка', 'пригород') or distance_km <= 35", "message": "пригород дальше 35 км от города"},
+    {"name": "дом_в_пригороде_в_пригороде", "expr": "building_type != 'дом в пригороде' or in(setting, 'пригород', 'окраина посёлка')", "message": "«дом в пригороде» посреди леса"},
+    {"name": "свежий_ремонт_значит_ремонт", "expr": "condition != 'свежий ремонт' or renovated or year_built >= 2015", "message": "свежий ремонт без ремонта в старом доме"},
+    {"name": "групповая_есть_всегда", "expr": "has(amenities, 'комната для групповых занятий')", "message": "в реабилитационном центре нет помещения для групп"}
+  ],
+  "soft": [
+    {"name": "эконом_теснее", "when": "segment == 'эконом'", "then": [
+      {"kind": "weight", "param": "room_type", "value": "общие комнаты на 4-6 человек", "factor": 2.5},
+      {"kind": "weight", "param": "room_type", "value": "двухместные комнаты", "factor": 0.4},
+      {"kind": "weight", "param": "building_type", "value": "переоборудованная база отдыха", "factor": 2.0},
+      {"kind": "weight", "param": "building_type", "value": "загородная усадьба", "factor": 0.3},
+      {"kind": "weight", "param": "setting", "value": "окраина посёлка", "factor": 2.0},
+      {"kind": "weight", "param": "setting", "value": "берег озера", "factor": 0.5}
+    ]},
+    {"name": "премиум_просторнее", "when": "segment == 'премиум'", "then": [
+      {"kind": "weight", "param": "room_type", "value": "одноместные комнаты", "factor": 4.0},
+      {"kind": "weight", "param": "room_type", "value": "двухместные комнаты", "factor": 2.5},
+      {"kind": "weight", "param": "building_type", "value": "загородная усадьба", "factor": 3.0},
+      {"kind": "weight", "param": "building_type", "value": "новый корпус", "factor": 2.0},
+      {"kind": "weight", "param": "amenities", "value": "бассейн", "factor": 6.0},
+      {"kind": "weight", "param": "amenities", "value": "спортзал", "factor": 2.5},
+      {"kind": "weight", "param": "setting", "value": "берег озера", "factor": 2.5},
+      {"kind": "weight", "param": "setting", "value": "сосновый лес", "factor": 2.0},
+      {"kind": "weight", "param": "setting", "value": "окраина посёлка", "factor": 0.2},
+      {"kind": "range", "param": "capacity", "max": 25.0}
+    ]},
+    {"name": "база_отдыха_крупная", "when": "building_type == 'переоборудованная база отдыха'", "then": [
+      {"kind": "range", "param": "capacity", "min": 20.0},
+      {"kind": "range", "param": "year_built", "max": 1995.0}
+    ]},
+    {"name": "новый_корпус_недавний", "when": "building_type == 'новый корпус'", "then": [
+      {"kind": "range", "param": "year_built", "min": 2010.0}
+    ]},
+    {"name": "санаторий_старый", "when": "building_type == 'бывший санаторный корпус'", "then": [
+      {"kind": "range", "param": "year_built", "max": 1990.0},
+      {"kind": "range", "param": "capacity", "min": 25.0}
+    ]},
+    {"name": "дом_в_пригороде", "when": "building_type == 'дом в пригороде'", "then": [
+      {"kind": "weight", "param": "setting", "value": "пригород", "factor": 20.0},
+      {"kind": "weight", "param": "setting", "value": "окраина посёлка", "factor": 10.0}
+    ]},
+    {"name": "одноэтажный_невелик", "when": "floors == 1", "then": [
+      {"kind": "range", "param": "capacity", "max": 20.0}
+    ]},
+    {"name": "коттедж_невелик", "when": "building_type == 'частный коттедж'", "then": [
+      {"kind": "range", "param": "capacity", "max": 24.0}
+    ]},
+    {"name": "в_лесу_дальше", "when": "in(setting, 'сосновый лес', 'смешанный лес', 'берег озера', 'берег реки', 'поля и перелески')", "then": [
+      {"kind": "range", "param": "distance_km", "min": 20.0}
+    ]},
+    {"name": "в_пригороде_ближе", "when": "in(setting, 'окраина посёлка', 'пригород')", "then": [
+      {"kind": "range", "param": "distance_km", "max": 35.0}
+    ]},
+    {"name": "групповая_почти_всегда", "when": "true", "then": [
+      {"kind": "weight", "param": "amenities", "value": "комната для групповых занятий", "factor": 20.0}
+    ]},
+    {"name": "новое_выглядит_новым", "when": "year_built >= 2015 or renovated", "then": [
+      {"kind": "weight", "param": "condition", "value": "свежий ремонт", "factor": 3.0},
+      {"kind": "weight", "param": "condition", "value": "аккуратный, но видны годы", "factor": 0.3}
+    ]}
+  ]
+}

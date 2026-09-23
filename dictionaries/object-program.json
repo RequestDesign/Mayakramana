@@ -1,0 +1,175 @@
+{
+  "name": "object-program",
+  "version": 1,
+  "description": "Программа реабилитации. Генерируется отдельным пулом и потом привязывается к центру по ценовому уровню и специализации — так же, как персонал.",
+  "params": [
+    {
+      "key": "segment",
+      "title": "Ценовой уровень",
+      "group": "уровень",
+      "identity": true,
+      "mention": "background",
+      "directive": "ценовой уровень (влияет на насыщенность программы, слово не называть)",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "эконом", "weight": 45},
+          {"value": "средний", "weight": 40},
+          {"value": "премиум", "weight": 15}
+        ]
+      }
+    },
+    {
+      "key": "focus",
+      "title": "Для кого программа",
+      "group": "программа",
+      "identity": true,
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "алкогольная зависимость", "weight": 32},
+          {"value": "наркотическая зависимость", "weight": 28},
+          {"value": "двойной диагноз", "weight": 12},
+          {"value": "подростки и молодёжь", "weight": 10},
+          {"value": "игровая зависимость", "weight": 6},
+          {"value": "смешанная зависимость", "weight": 12}
+        ]
+      }
+    },
+    {
+      "key": "approach",
+      "title": "Основа программы",
+      "group": "программа",
+      "identity": true,
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "программа двенадцати шагов", "weight": 30},
+          {"value": "миннесотская модель", "weight": 22},
+          {"value": "терапевтическое сообщество", "weight": 16},
+          {"value": "когнитивно-поведенческий подход", "weight": 18},
+          {"value": "сочетание нескольких подходов", "weight": 14}
+        ]
+      }
+    },
+    {
+      "key": "duration",
+      "title": "Длительность",
+      "group": "программа",
+      "identity": true,
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "28 дней", "weight": 20},
+          {"value": "45 дней", "weight": 16},
+          {"value": "2 месяца", "weight": 20},
+          {"value": "3 месяца", "weight": 26},
+          {"value": "6 месяцев", "weight": 18}
+        ]
+      }
+    },
+    {
+      "key": "detox_included",
+      "title": "Детоксикация в начале",
+      "group": "программа",
+      "identity": true,
+      "domain": {"kind": "bool", "p_true": 0.55}
+    },
+    {
+      "key": "family_program",
+      "title": "Программа для родственников",
+      "group": "программа",
+      "identity": true,
+      "domain": {"kind": "bool", "p_true": 0.6}
+    },
+    {
+      "key": "labor_therapy",
+      "title": "Трудотерапия",
+      "group": "программа",
+      "domain": {"kind": "bool", "p_true": 0.4}
+    },
+    {
+      "key": "individual_per_week",
+      "title": "Индивидуальных встреч в неделю",
+      "group": "распорядок",
+      "domain": {"kind": "int", "min": 1, "max": 4, "weights": [30, 40, 20, 10]}
+    },
+    {
+      "key": "group_hours_per_day",
+      "title": "Часов групповой работы в день",
+      "group": "распорядок",
+      "identity": true,
+      "domain": {"kind": "int", "min": 2, "max": 6}
+    },
+    {
+      "key": "aftercare_months",
+      "title": "Сопровождение после выписки, месяцев",
+      "group": "программа",
+      "identity": true,
+      "domain": {"kind": "int", "min": 0, "max": 12, "weights": [18, 10, 8, 16, 6, 4, 14, 3, 3, 3, 2, 2, 11]}
+    },
+    {
+      "key": "regime",
+      "title": "Режим",
+      "group": "распорядок",
+      "mention": "background",
+      "directive": "насколько строгий распорядок (показать через описание дня, не называть)",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "строгий", "weight": 34},
+          {"value": "умеренный", "weight": 46},
+          {"value": "мягкий", "weight": 20}
+        ]
+      }
+    },
+    {"key": "title", "title": "Название", "group": "текст", "domain": {"kind": "derived"}},
+    {"key": "description", "title": "Описание", "group": "текст", "domain": {"kind": "derived"}},
+    {"key": "stages", "title": "Этапы", "group": "текст", "domain": {"kind": "derived"}}
+  ],
+  "hard": [
+    {"name": "полгода_не_у_коротких_моделей", "expr": "duration != '6 месяцев' or in(approach, 'терапевтическое сообщество', 'сочетание нескольких подходов', 'программа двенадцати шагов')", "message": "полугодовая программа на модели, рассчитанной на короткий курс"},
+    {"name": "миннесота_короткая", "expr": "approach != 'миннесотская модель' or in(duration, '28 дней', '45 дней', '2 месяца')", "message": "миннесотская модель дольше двух месяцев"},
+    {"name": "двойной_диагноз_с_детоксом", "expr": "focus != 'двойной диагноз' or detox_included", "message": "двойной диагноз без медицинского этапа"},
+    {"name": "эконом_без_частых_индивидуальных", "expr": "segment != 'эконом' or individual_per_week <= 2", "message": "в бюджетной программе индивидуальные встречи чаще двух раз в неделю"},
+    {"name": "премиум_с_индивидуальной_работой", "expr": "segment != 'премиум' or individual_per_week >= 2", "message": "в дорогой программе индивидуальные встречи реже двух раз в неделю"},
+    {"name": "короткая_требует_сопровождения", "expr": "duration != '28 дней' or aftercare_months >= 3", "message": "короткая программа без сопровождения после выписки"},
+    {"name": "подросткам_родственники", "expr": "focus != 'подростки и молодёжь' or family_program", "message": "подростковая программа без работы с родителями"}
+  ],
+  "soft": [
+    {"name": "сообщество_долгое", "when": "approach == 'терапевтическое сообщество'", "then": [
+      {"kind": "weight", "param": "duration", "value": "6 месяцев", "factor": 4.0},
+      {"kind": "weight", "param": "duration", "value": "28 дней", "factor": 0.1}
+    ]},
+    {"name": "миннесота_четыре_недели", "when": "approach == 'миннесотская модель'", "then": [
+      {"kind": "weight", "param": "duration", "value": "28 дней", "factor": 4.0},
+      {"kind": "weight", "param": "duration", "value": "6 месяцев", "factor": 0.0},
+      {"kind": "weight", "param": "duration", "value": "3 месяца", "factor": 0.0}
+    ]},
+    {"name": "наркотики_с_детоксом", "when": "in(focus, 'наркотическая зависимость', 'двойной диагноз', 'смешанная зависимость')", "then": [
+      {"kind": "weight", "param": "detox_included", "value": "true", "factor": 3.0}
+    ]},
+    {"name": "игровая_без_детокса", "when": "focus == 'игровая зависимость'", "then": [
+      {"kind": "weight", "param": "detox_included", "value": "true", "factor": 0.05}
+    ]},
+    {"name": "подросткам_семья", "when": "focus == 'подростки и молодёжь'", "then": [
+      {"kind": "weight", "param": "family_program", "value": "true", "factor": 10.0},
+      {"kind": "weight", "param": "regime", "value": "строгий", "factor": 1.8}
+    ]},
+    {"name": "эконом_меньше_индивидуальной", "when": "segment == 'эконом'", "then": [
+      {"kind": "range", "param": "individual_per_week", "max": 2.0},
+      {"kind": "weight", "param": "labor_therapy", "value": "true", "factor": 2.0}
+    ]},
+    {"name": "премиум_больше_индивидуальной", "when": "segment == 'премиум'", "then": [
+      {"kind": "range", "param": "individual_per_week", "min": 2.0},
+      {"kind": "weight", "param": "labor_therapy", "value": "true", "factor": 0.3}
+    ]},
+    {"name": "короткая_сопровождение", "when": "duration == '28 дней'", "then": [
+      {"kind": "range", "param": "aftercare_months", "min": 3.0}
+    ]},
+    {"name": "сообщество_трудотерапия", "when": "approach == 'терапевтическое сообщество'", "then": [
+      {"kind": "weight", "param": "labor_therapy", "value": "true", "factor": 4.0},
+      {"kind": "weight", "param": "regime", "value": "строгий", "factor": 2.0}
+    ]}
+  ]
+}

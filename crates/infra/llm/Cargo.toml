@@ -1,0 +1,23 @@
+[package]
+name = "synthforge-llm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Порт к языковым моделям и моделям изображений, две реализации на каждый"
+
+[dependencies]
+synthforge-ports = { workspace = true }
+tokio = { workspace = true }
+reqwest = { workspace = true, features = ["multipart"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+governor = { workspace = true }
+base64 = "0.22"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+tracing-subscriber = { workspace = true }

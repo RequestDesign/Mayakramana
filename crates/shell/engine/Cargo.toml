@@ -1,0 +1,23 @@
+[package]
+name = "synthforge-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Движок: сессии, воркеры, пачки, восстановление после сбоев"
+
+[dependencies]
+synthforge-params = { workspace = true }
+synthforge-ports = { workspace = true }
+synthforge-store = { workspace = true }
+synthforge-textsim = { workspace = true }
+
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "sync", "fs"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }

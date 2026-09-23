@@ -1,0 +1,45 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/core/*",
+    "crates/infra/*",
+    "crates/generators/*",
+    "crates/shell/*",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "proprietary"
+
+[workspace.dependencies]
+synthforge-params = { path = "crates/core/params" }
+synthforge-ports = { path = "crates/core/ports" }
+synthforge-refdata = { path = "crates/core/refdata" }
+synthforge-textsim = { path = "crates/core/textsim" }
+synthforge-llm = { path = "crates/infra/llm" }
+synthforge-nexorium = { path = "crates/infra/nexorium" }
+synthforge-store = { path = "crates/infra/store" }
+
+rand = "0.8"
+
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "signal"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+url = "2"
+chrono = { version = "0.4", features = ["serde"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate"] }
+governor = "0.6"
+async-trait = "0.1"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 4
