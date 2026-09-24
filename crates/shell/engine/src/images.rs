@@ -213,6 +213,11 @@ async fn render_one(
     // опору снять не удалось совсем, снимок делается без неё: иначе умерший
     // фасад держал бы территорию в очереди навсегда.
     if let Some(base) = request.reference_role.clone() {
+        // Статус опоры читается до поиска файла: файл записывается раньше,
+        // чем задание помечается выполненным. Прочитай мы статус после поиска,
+        // фасад мог бы успеть завершиться между двумя чтениями — и территория
+        // ушла бы без опоры, хотя опора уже есть.
+        let base_pending = base_in_progress(generator, store, &payload, &base).await?;
         let existing = store
             .assets_for_entity(&payload.entity_key)
             .await?
@@ -224,7 +229,7 @@ async fn render_one(
                 Ok(bytes) => request.reference_png = Some(bytes),
                 Err(e) => tracing::warn!(path = %a.path, error = %e, "опорный снимок не читается"),
             },
-            None if base_in_progress(generator, store, &payload, &base).await? => {
+            None if base_pending => {
                 store.release(job.id).await?;
                 return Ok(false);
             }
