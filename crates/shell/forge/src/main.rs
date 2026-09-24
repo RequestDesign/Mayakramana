@@ -10,11 +10,13 @@
 //! forge show     <сессия> [n]              — посмотреть готовое
 //! forge mark     <сессия> <ключ> bad фон угрюмый --comment "…"
 //! forge feedback <сессия>                  — сводка приёмки
+//! forge mcp                                — агент по протоколу (MCP поверх stdio)
 //! ```
 //!
 //! Это слой оболочки: здесь и только здесь генератор встречается с
 //! инфраструктурой. Сам генератор о существовании Grok и OpenAI не знает.
 
+mod mcp;
 mod site;
 
 use std::sync::Arc;
@@ -35,8 +37,10 @@ const OUT_DIR: &str = "out";
 
 #[tokio::main]
 async fn main() {
+    // Журнал — в stderr: в режиме mcp stdout занят протоколом.
     tracing_subscriber::fmt()
         .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "warn".into()))
+        .with_writer(std::io::stderr)
         .init();
 
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -57,6 +61,7 @@ async fn main() {
         "center" => cmd_center(&args).await,
         "site" => cmd_site().await,
         "photos" => cmd_photos(&args).await,
+        "mcp" => mcp::serve().await,
         _ => {
             usage();
             return;
@@ -79,7 +84,8 @@ fn usage() {
          forge watch    <сессия>\n\
          forge show     <сессия> [сколько]\n\
          forge mark     <сессия> <ключ> good|bad [метки…] [--comment «…»]\n\
-         forge feedback <сессия>\n\n\
+         forge feedback <сессия>\n\
+         forge mcp      — агент по протоколу (MCP поверх stdio)\n\n\
          Виды: doctor, consultant, psychologist, director, place, program\n\
          Черновики на согласовании: те же с суффиксом -v2 (doctor-v2, place-v2…)"
     );
