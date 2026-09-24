@@ -15,6 +15,39 @@ use synthforge_store::{Store, Usage};
 
 use crate::{Error, Result};
 
+/// Ключ задания на снимок сущности: по нему находится задание на опорный снимок.
+pub(crate) fn image_job_key(entity_key: &str, index: usize) -> String {
+    format!("{entity_key}#img{index}")
+}
+
+/// Опорный снимок ещё может появиться: его задание стоит в очереди или
+/// выполняется. Завершилось, умерло или не ставилось вовсе — ждать нечего.
+async fn base_in_progress(
+    generator: &dyn synthforge_ports::Generator,
+    store: &Store,
+    payload: &ImageJobPayload,
+    base: &str,
+) -> Result<bool> {
+    let Some(index) = generator
+        .image_requests(&payload.row)
+        .iter()
+        .position(|r| r.role == base)
+    else {
+        return Ok(false);
+    };
+    let job = store
+        .job_by_natural_key(&image_job_key(&payload.entity_key, index))
+        .await?;
+    Ok(job.is_some_and(|j| {
+        matches!(
+            j.status,
+            synthforge_store::JobStatus::Pending
+                | synthforge_store::JobStatus::Running
+                | synthforge_store::JobStatus::Failed
+        )
+    }))
+}
+
 /// Полезная нагрузка задания на изображение.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImageJobPayload {
@@ -132,9 +165,12 @@ impl ImagePipeline {
                 }));
             }
 
+            let batch = tasks.len();
+            let mut idle = 0usize;
             for t in tasks {
                 match t.await {
-                    Ok(Ok(())) => produced += 1,
+                    Ok(Ok(true)) => produced += 1,
+                    Ok(Ok(false)) => idle += 1,
                     Ok(Err(e)) if e.is_fatal() => {
                         tracing::error!(error = %e, "фатальная ошибка при генерации изображений");
                         return Err(e);
@@ -142,6 +178,12 @@ impl ImagePipeline {
                     Ok(Err(e)) => tracing::warn!(error = %e, "изображение не получено"),
                     Err(e) => tracing::error!(error = %e, "воркер изображений упал"),
                 }
+            }
+
+            // Вся пачка только ждала опору, которую рисует другой процесс, —
+            // не крутим очередь впустую.
+            if idle == batch {
+                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
             }
         }
 
@@ -155,16 +197,43 @@ async fn render_one(
     assets: &dyn AssetStore,
     store: &Store,
     job: synthforge_store::Job,
-) -> Result<()> {
+) -> Result<bool> {
     let payload: ImageJobPayload = serde_json::from_str(&job.payload)?;
 
     let requests = generator.image_requests(&payload.row);
-    let Some(request) = requests.into_iter().nth(payload.index) else {
+    let Some(mut request) = requests.into_iter().nth(payload.index) else {
         store
             .fail(job.id, "генератор не предложил такого снимка", Usage::default())
             .await?;
-        return Ok(());
+        return Ok(false);
     };
+
+    // Снимок с опорой на другой снимок той же сущности: подставляем готовый
+    // файл. Если опору ещё рисуют — задание возвращается в очередь. Если
+    // опору снять не удалось совсем, снимок делается без неё: иначе умерший
+    // фасад держал бы территорию в очереди навсегда.
+    if let Some(base) = request.reference_role.clone() {
+        let existing = store
+            .assets_for_entity(&payload.entity_key)
+            .await?
+            .into_iter()
+            .find(|a| a.role == base);
+
+        match existing {
+            Some(a) => match tokio::fs::read(&a.path).await {
+                Ok(bytes) => request.reference_png = Some(bytes),
+                Err(e) => tracing::warn!(path = %a.path, error = %e, "опорный снимок не читается"),
+            },
+            None if base_in_progress(generator, store, &payload, &base).await? => {
+                store.release(job.id).await?;
+                return Ok(false);
+            }
+            None => tracing::warn!(
+                entity = %payload.entity_key, base = %base,
+                "опорный снимок не получен, снимаю без опоры"
+            ),
+        }
+    }
 
     let role = request.role.clone();
 
@@ -207,5 +276,5 @@ async fn render_one(
         )
         .await?;
 
-    Ok(())
+    Ok(true)
 }

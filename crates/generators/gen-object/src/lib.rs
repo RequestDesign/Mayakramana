@@ -33,6 +33,8 @@ pub struct ShotSpec {
     /// Что в кадре. Параметры объекта подклеиваются после.
     pub scene: &'static str,
     pub size: ImageSize,
+    /// На какой снимок той же сущности опираться, чтобы объект был тем же.
+    pub based_on: Option<&'static str>,
 }
 
 /// Обороты, недопустимые в описании объекта: рекламные штампы и обещания.
@@ -121,16 +123,23 @@ impl ObjectGenerator {
                     role: "facade",
                     scene: "Фасад здания и вход, снято с дорожки перед домом",
                     size: ImageSize::Landscape,
+                    based_on: None,
                 },
+                // Комната без опоры: интерьер по снимку фасада модель рисует
+                // плохо — пытается перенести на него уличный вид.
                 ShotSpec {
                     role: "room",
                     scene: "Жилая комната для проживания, снято от двери",
                     size: ImageSize::Landscape,
+                    based_on: None,
                 },
+                // Территория — с опорой на фасад: на ней виден тот же дом, и
+                // без опоры это был бы другой дом.
                 ShotSpec {
                     role: "territory",
-                    scene: "Территория вокруг дома и ближайшее окружение",
+                    scene: "Территория вокруг этого же дома и ближайшее окружение, дом виден в кадре",
                     size: ImageSize::Landscape,
+                    based_on: Some("facade"),
                 },
             ],
         )
@@ -235,14 +244,18 @@ impl Generator for ObjectGenerator {
         self.shots
             .iter()
             .map(|s| {
-                ImageRequest::new(format!(
+                let mut r = ImageRequest::new(format!(
                     "{}. Документальная фотография реального места, естественный свет, \
                      обычная камера, без постановки.\n\n{visual}",
                     s.scene
                 ))
                 .role(s.role)
                 .size(s.size)
-                .avoid(SHOT_AVOID.iter().copied())
+                .avoid(SHOT_AVOID.iter().copied());
+                if let Some(base) = s.based_on {
+                    r = r.based_on(base);
+                }
+                r
             })
             .collect()
     }
@@ -445,7 +458,22 @@ mod tests {
         assert!(shots.iter().all(|s| s.full_prompt().contains("люди в кадре")));
     }
 
-/// Текст и снимок одного дома должны описывать одно и то же. На живом прогоне
+    /// Фасад и территория — один и тот же дом: территория снимается с опорой
+    /// на фасад, а сам фасад ни на что не опирается.
+    #[test]
+    fn territory_is_based_on_facade() {
+        let g = place();
+        let row = g.plan(&GenSpec::new(1)).unwrap().remove(0);
+        let shots = g.image_requests(&row);
+        let base = |role: &str| {
+            shots.iter().find(|s| s.role == role).unwrap().reference_role.clone()
+        };
+        assert_eq!(base("territory").as_deref(), Some("facade"));
+        assert_eq!(base("facade"), None);
+        assert_eq!(base("room"), None);
+    }
+
+    /// Текст и снимок одного дома должны описывать одно и то же. На живом прогоне
     /// «частный коттедж в лесу» получил фото казённого трёхэтажного здания:
     /// тип здания и окружение уходили только в текст.
     #[test]

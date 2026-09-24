@@ -30,6 +30,12 @@ pub struct ImageRequest {
     /// Референс задаёт, что это тот же самый объект.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reference_png: Option<Vec<u8>>,
+    /// Назначение уже сделанного снимка той же сущности, который надо взять
+    /// опорой: территория снимается с опорой на фасад, чтобы на обоих был один
+    /// и тот же дом. Сам снимок подставляет движок — генератор знает только,
+    /// на что опираться.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference_role: Option<String>,
     /// Чего на изображении быть не должно. Хранится отдельно от промпта:
     /// одни провайдеры принимают отрицания в тексте, другие — отдельным полем.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -51,8 +57,14 @@ impl ImageRequest {
             prompt: prompt.into(),
             size: ImageSize::Square,
             reference_png: None,
+            reference_role: None,
             avoid: Vec::new(),
         }
+    }
+
+    pub fn based_on(mut self, role: impl Into<String>) -> Self {
+        self.reference_role = Some(role.into());
+        self
     }
 
     pub fn role(mut self, r: impl Into<String>) -> Self {

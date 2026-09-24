@@ -138,7 +138,13 @@ impl Engine {
             if !spec.with_images {
                 continue;
             }
-            for (n, _) in generator.image_requests(row).iter().enumerate() {
+            // Опорные снимки ставятся раньше зависимых: очередь берёт задания
+            // по порядку, и иначе территория, стоящая до фасада, захватывалась
+            // бы снова и снова, не пуская фасад в работу.
+            let requests = generator.image_requests(row);
+            let mut order: Vec<usize> = (0..requests.len()).collect();
+            order.sort_by_key(|&n| requests[n].reference_role.is_some());
+            for n in order {
                 let payload = ImageJobPayload {
                     entity_key: entity_key.clone(),
                     index: n,
@@ -146,7 +152,7 @@ impl Engine {
                 };
                 jobs.push(NewJob::new(
                     image_kind(kind),
-                    format!("{entity_key}#img{n}"),
+                    images::image_job_key(&entity_key, n),
                     serde_json::to_value(&payload)?,
                 ));
             }

@@ -647,3 +647,113 @@ async fn budget_cap_stops_the_run() {
     assert!(progress.done >= 8, "остановился слишком рано: готово {}", progress.done);
     assert!(progress.pending > 0, "незавершённые задания должны остаться в очереди");
 }
+
+// ------------------------------------------------- снимки с опорой на другой
+
+/// Дом: фасад и территория, территория опирается на фасад.
+struct HouseGen(FakeGen);
+
+impl Generator for HouseGen {
+    fn descriptor(&self) -> &EntityDescriptor {
+        self.0.descriptor()
+    }
+    fn model(&self) -> &ParamModel {
+        self.0.model()
+    }
+    fn plan(&self, spec: &GenSpec) -> Result<Vec<ParamRow>, synthforge_params::Error> {
+        self.0.plan(spec)
+    }
+    fn text_request(&self, row: &ParamRow, brief: Option<&str>) -> TextRequest {
+        self.0.text_request(row, brief)
+    }
+    // Территория стоит первой: опора не обязана идти раньше по порядку.
+    fn image_requests(&self, _row: &ParamRow) -> Vec<ImageRequest> {
+        vec![
+            ImageRequest::new("территория того же дома").role("territory").based_on("facade"),
+            ImageRequest::new("фасад").role("facade"),
+        ]
+    }
+    fn accept_text(&self, row: &ParamRow, text: &str) -> Result<AcceptedText, RejectReason> {
+        self.0.accept_text(row, text)
+    }
+    fn assemble(&self, row: &ParamRow, accepted: &AcceptedText) -> serde_json::Value {
+        self.0.assemble(row, accepted)
+    }
+}
+
+/// Запоминает, с какой опорой пришёл каждый снимок. Фасад может отказывать.
+#[derive(Default)]
+struct RecordingImage {
+    seen: Mutex<Vec<(String, Option<Vec<u8>>)>>,
+    facade_refused: bool,
+}
+
+#[async_trait]
+impl synthforge_ports::ImageModel for RecordingImage {
+    fn id(&self) -> &str {
+        "recording-image"
+    }
+    fn provider(&self) -> &str {
+        "fake"
+    }
+    async fn render(&self, req: ImageRequest) -> PortResult<synthforge_ports::ImageResponse> {
+        if self.facade_refused && req.role == "facade" {
+            return Err(PortError::Rejected("фасад не рисуется".into()));
+        }
+        self.seen.lock().unwrap().push((req.role.clone(), req.reference_png.clone()));
+        Ok(synthforge_ports::ImageResponse {
+            png: format!("png:{}", req.role).into_bytes(),
+            model: "recording-image".into(),
+            usage: Usage { tokens_in: 0, tokens_out: 0, cost_usd: 0.04 },
+        })
+    }
+}
+
+async fn house_run(model: Arc<RecordingImage>, concurrency: usize) -> Vec<(String, Option<Vec<u8>>)> {
+    let n = SEQ.fetch_add(1, Ordering::SeqCst);
+    let dir = std::env::temp_dir().join(format!("synthforge-house-{}-{n}", std::process::id()));
+    let gen: Arc<dyn Generator> = Arc::new(HouseGen(FakeGen::with_images(2)));
+    let st = store().await;
+    let engine = Engine::new(st.clone(), Arc::new(FakeContent::default()), Arc::new(FakeText::ok()))
+        .with_config(cfg());
+    let session = engine
+        .start_session(&*gen, &GenSpec::new(3).seed(21).with_images(true))
+        .await
+        .unwrap();
+
+    ImagePipeline::new(st, model.clone(), Arc::new(synthforge_engine::FsAssetStore::new(&dir)))
+        .concurrency(concurrency)
+        .run(gen, &session, &synthforge_engine::image_kind("fake"))
+        .await
+        .unwrap();
+
+    let _ = std::fs::remove_dir_all(&dir);
+    let seen = model.seen.lock().unwrap().clone();
+    seen
+}
+
+/// Территория снимается с опорой на готовый фасад того же дома — даже когда
+/// в очереди она стоит раньше фасада и берётся с ним в одной пачке.
+#[tokio::test]
+async fn territory_gets_its_facade_as_reference() {
+    for concurrency in [1, 4] {
+        let seen = house_run(Arc::new(RecordingImage::default()), concurrency).await;
+        let territories: Vec<_> = seen.iter().filter(|(r, _)| r == "territory").collect();
+        assert_eq!(territories.len(), 3, "параллелизм {concurrency}: {seen:?}");
+        for (_, reference) in territories {
+            assert_eq!(reference.as_deref(), Some(&b"png:facade"[..]), "параллелизм {concurrency}");
+        }
+        assert!(seen.iter().filter(|(r, _)| r == "facade").all(|(_, p)| p.is_none()));
+    }
+}
+
+/// Фасад не получился совсем — территория не зависает в очереди навсегда,
+/// а снимается без опоры.
+#[tokio::test]
+async fn territory_without_facade_is_still_rendered() {
+    let model = Arc::new(RecordingImage { facade_refused: true, ..Default::default() });
+    let seen = house_run(model, 2).await;
+    let territories: Vec<_> = seen.iter().filter(|(r, _)| r == "territory").collect();
+    assert_eq!(territories.len(), 3, "{seen:?}");
+    assert!(territories.iter().all(|(_, p)| p.is_none()));
+}

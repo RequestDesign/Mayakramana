@@ -703,10 +703,17 @@ async fn cmd_photos(args: &[String]) -> R {
                 .collect();
 
             let mut shots = Vec::new();
-            for req in g.image_requests(&row) {
+            // Снимки сущности идут по порядку, поэтому опора (фасад) к моменту
+            // снимка, который на неё ссылается (территория), уже готова.
+            let mut rendered: std::collections::HashMap<String, Vec<u8>> = Default::default();
+            for mut req in g.image_requests(&row) {
                 let role = req.role.clone();
+                if let Some(png) = req.reference_role.as_ref().and_then(|b| rendered.get(b)) {
+                    req.reference_png = Some(png.clone());
+                }
                 match model.render(req).await {
                     Ok(img) => {
+                        rendered.insert(role.clone(), img.png.clone());
                         let path = assets.put("photos", &k, &role, &img.png).await?;
                         spent += img.usage.cost_usd;
                         made += 1;
