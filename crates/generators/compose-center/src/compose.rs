@@ -99,6 +99,10 @@ pub struct CenterPlan {
     pub focus: String,
     /// Насколько команда соответствует специализации, от 0 до 1.
     pub fit: f32,
+    /// Год основания. Следует из руководителя: основатель руководит с первого
+    /// дня, приглашённый — пришёл позже. И не раньше постройки здания.
+    #[serde(default)]
+    pub founded_year: i64,
 }
 
 impl CenterPlan {
@@ -168,6 +172,9 @@ pub fn fit(role: Role, c: &Candidate, focus: &str) -> f32 {
         _ => 0.5,
     }
 }
+
+/// Год, относительно которого считаются даты.
+pub const REFERENCE_YEAR: i64 = 2026;
 
 /// Специализации, при которых в команде обязан быть нарколог.
 pub fn needs_narcologist(focus: &str) -> bool {
@@ -315,6 +322,21 @@ pub fn compose(pools: &Pools, count: usize, seed: u64) -> Result<Vec<CenterPlan>
             continue;
         };
 
+        // Год основания: у основателя — начало его руководства, у приглашённого
+        // руководителя центр старше на несколько лет. Центр не может быть
+        // старше здания, в котором находится.
+        let leading = director.int("leading_years").max(1);
+        let founded_year = if director.bool("founder") {
+            REFERENCE_YEAR - leading
+        } else {
+            let extra = 1 + (surname_root(director).len() as i64 + capacity) % 9;
+            REFERENCE_YEAR - leading - extra
+        };
+        let year_built = place.int("year_built");
+        if year_built > 0 && founded_year < year_built {
+            continue;
+        }
+
         let fit_score = {
             let scores: Vec<f32> = doctors
                 .iter()
@@ -342,6 +364,7 @@ pub fn compose(pools: &Pools, count: usize, seed: u64) -> Result<Vec<CenterPlan>
             segment,
             focus,
             fit: fit_score,
+            founded_year,
         });
     }
 

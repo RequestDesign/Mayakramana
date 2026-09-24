@@ -292,6 +292,104 @@ fn every_center_gets_a_distinct_name_from_the_reference() {
     assert!(!got.contains(&"Маяк".to_string()), "занятое название выдано повторно");
 }
 
+fn catalog() -> ServiceCatalog {
+    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../reference/services-ru.json");
+    ServiceCatalog::from_json(&std::fs::read_to_string(path).unwrap()).unwrap()
+}
+
+/// Услуги выводятся из состава: без нарколога нет выезда на дом, без семейной
+/// программы нет группы для родственников.
+#[test]
+fn services_follow_the_team_and_program() {
+    let mut p = pools(4);
+    for (i, prog) in p.programs.iter_mut().enumerate() {
+        prog.record["family_program"] = json!(i % 2 == 0);
+        prog.record["detox_included"] = json!(true);
+        prog.record["aftercare_months"] = json!(3);
+    }
+    for d in p.doctors.iter_mut() {
+        d.record["detox_experience"] = json!(true);
+    }
+    let cat = catalog();
+
+    for c in compose(&p, 4, 21).unwrap() {
+        let list = offers(&c, &p, &cat, 21);
+        let keys: Vec<&str> = list.iter().map(|o| o.key.as_str()).collect();
+
+        let program = p.programs.iter().find(|x| x.key == c.program).unwrap();
+        let family = program.record["family_program"].as_bool().unwrap();
+        assert_eq!(keys.contains(&"family_group"), family, "группа для родственников не следует из программы");
+
+        let has_narc = c.doctors.iter().any(|k| {
+            compose::is_narcologist(p.doctors.iter().find(|d| &d.key == k).unwrap())
+        });
+        assert_eq!(keys.contains(&"detox_home"), has_narc, "выезд на дом не следует из наличия нарколога");
+
+        assert!(keys.contains(&"rehab"), "реабилитация есть в любом центре");
+        assert_eq!(round_the_clock(&list), keys.contains(&"detox_inpatient") || keys.contains(&"detox_home"));
+    }
+}
+
+/// Цены лежат в диапазоне своего уровня с поправкой на регион и
+/// воспроизводимы при повторном запуске.
+#[test]
+fn prices_stay_in_segment_range_and_are_stable() {
+    let p = pools(3);
+    let cat = catalog();
+    let centers = compose(&p, 3, 22).unwrap();
+
+    for c in &centers {
+        let a = offers(c, &p, &cat, 22);
+        let b = offers(c, &p, &cat, 22);
+        assert_eq!(a, b, "цены должны воспроизводиться");
+
+        let region = p.places.iter().find(|x| x.key == c.place).unwrap().record["region"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let f = cat.region_factor.get(&region).copied().unwrap_or(1.0);
+
+        for o in &a {
+            let def = cat.services.iter().find(|s| s.key == o.key).unwrap();
+            let [lo, hi] = def.price[&c.segment];
+            let (lo, hi) = (lo as f64 * f * 0.9, hi as f64 * f * 1.1 + 5000.0);
+            assert!(
+                (o.price_from as f64) >= lo && (o.price_from as f64) <= hi,
+                "{} {} вне диапазона {lo:.0}–{hi:.0}: {}",
+                c.segment, o.title, o.price_from
+            );
+        }
+    }
+}
+
+/// Центр не старше своего здания; у основателя год основания — начало его
+/// руководства.
+#[test]
+fn founding_year_is_consistent() {
+    let mut p = pools(6);
+    for (i, place) in p.places.iter_mut().enumerate() {
+        place.record["year_built"] = json!(1975 + (i as i64 * 7) % 45);
+    }
+    for (i, d) in p.directors.iter_mut().enumerate() {
+        d.record["leading_years"] = json!(3 + (i as i64 * 5) % 20);
+        d.record["founder"] = json!(i % 2 == 0);
+    }
+
+    for c in compose(&p, 4, 23).unwrap() {
+        let place = p.places.iter().find(|x| x.key == c.place).unwrap();
+        let dir = p.directors.iter().find(|x| x.key == c.director).unwrap();
+        let built = place.record["year_built"].as_i64().unwrap();
+        let leading = dir.record["leading_years"].as_i64().unwrap();
+
+        assert!(c.founded_year >= built, "центр {} старше здания {}", c.founded_year, built);
+        assert!(c.founded_year <= compose::REFERENCE_YEAR - leading, "руководит дольше, чем существует центр");
+        if dir.record["founder"].as_bool().unwrap() {
+            assert_eq!(c.founded_year, compose::REFERENCE_YEAR - leading);
+        }
+    }
+}
+
 #[test]
 fn center_names_are_checked() {
     assert!(check_center_name("Твой шанс").is_ok());

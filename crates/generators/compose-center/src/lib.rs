@@ -19,6 +19,9 @@ use synthforge_ports::{
 };
 
 mod compose;
+mod services;
+
+pub use services::{course_price, offers, round_the_clock, Offer, ServiceCatalog, ServiceDef};
 
 pub use compose::{
     compose, fit, surname_root, team_size, Candidate, CenterPlan, ComposeError, Pools, Role,
@@ -32,6 +35,8 @@ pub struct CenterGenerator {
     /// прогоне модель писала названия из пяти слов с регионом и методом, и
     /// каждое уходило в брак — полной перегенерацией за деньги.
     names: Vec<String>,
+    /// Каталог услуг и цен. Пустой — у центра нет страницы услуг.
+    services: ServiceCatalog,
 }
 
 impl CenterGenerator {
@@ -57,6 +62,11 @@ impl CenterGenerator {
                     what: "Как здесь работают с людьми: программа и команда, 3-5 предложений",
                     min_len: 170,
                 },
+                TextField {
+                    key: "history",
+                    what: "История центра: когда и почему основан, как менялся, 3-4 предложения",
+                    min_len: 150,
+                },
             ],
             Vec::new(),
         );
@@ -72,7 +82,18 @@ impl CenterGenerator {
             .map(|c| (c.key.clone(), c.record.clone()))
             .collect();
 
-        Self { text, pools, index, names: Vec::new() }
+        Self {
+            text,
+            pools,
+            index,
+            names: Vec::new(),
+            services: ServiceCatalog::default(),
+        }
+    }
+
+    pub fn with_services(mut self, catalog: ServiceCatalog) -> Self {
+        self.services = catalog;
+        self
     }
 
     pub fn with_names(mut self, names: Vec<String>) -> Self {
@@ -109,7 +130,7 @@ impl CenterGenerator {
     }
 
     /// Строка параметров центра из собранного плана.
-    fn row_for(&self, plan: &CenterPlan) -> ParamRow {
+    fn row_for(&self, plan: &CenterPlan, seed: u64) -> ParamRow {
         let place = self.rec(&plan.place);
         let program = self.rec(&plan.program);
         let director = self.rec(&plan.director);
@@ -165,6 +186,36 @@ impl CenterGenerator {
         .join(". ");
         row.set("team", Value::Str(team));
 
+        row.set("founded_year", Value::Int(plan.founded_year));
+        row.set(
+            "director_leading_years",
+            Value::Int(i(director, "leading_years")),
+        );
+
+        // Услуги и цены — из состава центра, а не от модели.
+        if !self.services.services.is_empty() {
+            let list = offers(plan, &self.pools, &self.services, seed);
+            row.set("round_the_clock", Value::Bool(round_the_clock(&list)));
+            if let Some(p) = course_price(&list, &s(program, "duration")) {
+                row.set("course_price", Value::Int(p));
+            }
+            // Модели — только названия услуг: цены живут на странице услуг и
+            // в тексте о центре не нужны, а каждое число в тексте — ещё одна
+            // возможность его исказить.
+            row.set(
+                "service_names",
+                Value::List(list.iter().map(|o| o.title.clone()).collect()),
+            );
+            row.set(
+                "services",
+                Value::List(list.iter().map(|o| o.render()).collect()),
+            );
+            row.set(
+                "services_json",
+                Value::Str(serde_json::to_string(&list).unwrap_or_default()),
+            );
+        }
+
         row
     }
 }
@@ -193,7 +244,7 @@ impl Generator for CenterGenerator {
             .iter()
             .enumerate()
             .map(|(i, p)| {
-                let mut row = self.row_for(p);
+                let mut row = self.row_for(p, spec.seed);
                 if let Some(name) = names.get(i) {
                     row.set("center_name", Value::Str(name.clone()));
                 }
@@ -257,7 +308,9 @@ pub const CENTER_SYSTEM: &str = "\
 4. Никакой рекламы: ни «лучших», ни «уникальных», ни «европейского уровня».
    Уровень цены должен чувствоваться, но слова «эконом» и «премиум» не звучат.
 5. Название центра уже задано. Используй его как есть, не меняй и не
-   придумывай своё.
+   придумывай своё. Год основания тоже задан — не меняй его и не придумывай
+   других дат.
+   Услуги называй только из списка. Цены в тексте не упоминай.
 6. Полное имя руководителя назови один раз; дальше — по имени и отчеству.
 7. Не упоминай, что текст сгенерирован, и не обращайся к читателю.
 

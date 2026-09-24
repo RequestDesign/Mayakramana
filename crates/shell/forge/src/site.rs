@@ -17,6 +17,18 @@ fn s(r: &Value, k: &str) -> String {
     r.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string()
 }
 
+fn fmt_rub(n: i64) -> String {
+    let s = n.to_string();
+    let mut out = String::new();
+    for (i, ch) in s.chars().enumerate() {
+        if i > 0 && (s.len() - i) % 3 == 0 {
+            out.push(' ');
+        }
+        out.push(ch);
+    }
+    out
+}
+
 fn esc(t: &str) -> String {
     t.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
 }
@@ -128,12 +140,58 @@ pub fn build(out_dir: &str, pools: &HashMap<String, Value>, centers: &[Value]) -
             c.get("distance_km").and_then(|v| v.as_i64()).unwrap_or(0),
         );
 
+        let founded = c.get("founded_year").and_then(|v| v.as_i64()).unwrap_or(0);
+        let mut extra_tags = String::new();
+        if founded > 0 {
+            let _ = write!(extra_tags, "<span class=\"tag\">с {founded} года</span>");
+        }
+        if c.get("round_the_clock").and_then(|v| v.as_bool()).unwrap_or(false) {
+            extra_tags.push_str("<span class=\"tag\">круглосуточно</span>");
+        }
+        if !extra_tags.is_empty() {
+            let _ = write!(body, "<div class=\"meta\" style=\"margin-top:-12px\">{extra_tags}</div>");
+        }
+
         let _ = write!(
             body,
             "<div class=\"card\"><p>{}</p><p>{}</p></div>",
             esc(&s(c, "about")),
             esc(&s(c, "approach_text"))
         );
+
+        // Услуги и цены — из данных центра, а не из текста модели.
+        let offers: Vec<Value> = c
+            .get("services_json")
+            .and_then(|v| v.as_str())
+            .and_then(|t| serde_json::from_str(t).ok())
+            .unwrap_or_default();
+        if !offers.is_empty() {
+            let _ = write!(body, "<h2>Услуги и цены</h2><table><tr><th>Услуга</th><th>Стоимость</th></tr>");
+            for o in &offers {
+                let price = o.get("price_from").and_then(|v| v.as_i64()).unwrap_or(0);
+                let unit = s(o, "unit");
+                let cell = if price == 0 {
+                    "входит в стоимость".to_string()
+                } else {
+                    format!("от {} ₽ за {}", fmt_rub(price), esc(&unit))
+                };
+                let _ = write!(body, "<tr><td>{}</td><td>{cell}</td></tr>", esc(&s(o, "title")));
+            }
+            body.push_str("</table>");
+            if let Some(total) = c.get("course_price").and_then(|v| v.as_i64()) {
+                let _ = write!(
+                    body,
+                    "<p class=\"meta\">Полный курс по программе — от {} ₽. \
+                     Цены — ориентиры генератора, с рынком не сверены.</p>",
+                    fmt_rub(total)
+                );
+            }
+        }
+
+        let history = s(c, "history");
+        if !history.is_empty() {
+            let _ = write!(body, "<h2>История</h2><div class=\"card\"><p>{}</p></div>", esc(&history));
+        }
 
         // Здание: снимки, если делались, и описание.
         let photos: Vec<String> = ["facade", "room", "territory"]

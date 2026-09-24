@@ -27,11 +27,26 @@
     {"key": "director_background", "title": "Путь руководителя", "group": "люди", "domain": {"kind": "derived"}},
     {"key": "director_motivation", "title": "Почему он этим занимается", "group": "люди", "domain": {"kind": "derived"}},
     {"key": "team", "title": "Команда", "group": "люди", "domain": {"kind": "derived"}},
+    {"key": "director_leading_years", "title": "Лет руководит центром", "group": "люди", "domain": {"kind": "derived"}},
+
+    {"key": "founded_year", "title": "Год основания", "group": "центр",
+     "note": "Следует из руководителя: у основателя — начало его руководства. Не раньше постройки здания.",
+     "domain": {"kind": "derived"}},
+    {"key": "round_the_clock", "title": "Работает круглосуточно", "group": "центр",
+     "note": "Да, если есть стационарная детоксикация или выезд на дом: без дежурного врача их не оказывают.",
+     "domain": {"kind": "derived"}},
+    {"key": "service_names", "title": "Услуги", "group": "центр",
+     "note": "Выводятся кодом из состава центра: нарколог — значит есть вывод из запоя и т.д.",
+     "domain": {"kind": "derived"}},
+    {"key": "services", "title": "Услуги с ценами", "usage": "store_only", "domain": {"kind": "derived"}},
+    {"key": "services_json", "title": "Услуги (данные)", "usage": "store_only", "domain": {"kind": "derived"}},
+    {"key": "course_price", "title": "Стоимость полного курса, ₽", "usage": "store_only", "domain": {"kind": "derived"}},
 
     {"key": "center_name", "title": "Название", "group": "центр", "mention": "required",
      "note": "Выбирается кодом из справочника названий, модель его только использует.",
      "domain": {"kind": "derived"}},
     {"key": "about", "title": "О центре", "group": "текст", "domain": {"kind": "derived"}},
-    {"key": "approach_text", "title": "Как здесь работают", "group": "текст", "domain": {"kind": "derived"}}
+    {"key": "approach_text", "title": "Как здесь работают", "group": "текст", "domain": {"kind": "derived"}},
+    {"key": "history", "title": "История центра", "group": "текст", "domain": {"kind": "derived"}}
   ]
 }

@@ -545,8 +545,14 @@ async fn cmd_compose(args: &[String]) -> R {
         .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())
         .unwrap_or_default();
 
+    let services = synthforge_compose_center::ServiceCatalog::from_json(
+        &std::fs::read_to_string("reference/services-ru.json")?,
+    )?;
+
     let g: Arc<dyn Generator> = Arc::new(
-        synthforge_compose_center::CenterGenerator::new(model, pools).with_names(names),
+        synthforge_compose_center::CenterGenerator::new(model, pools)
+            .with_names(names)
+            .with_services(services),
     );
 
     let store = open_store().await?;
