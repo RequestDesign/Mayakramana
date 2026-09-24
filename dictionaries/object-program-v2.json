@@ -1,0 +1,188 @@
+{
+  "name": "object-program-v2",
+  "version": 2,
+  "description": "Черновик на согласование. Расширяет программу правилами, о которых родственники спрашивают до поступления: что с телефоном, когда можно приехать, сколько человек в группе, что будет после выписки и что делают при срыве. Правила согласованы с режимом: строгий режим с телефоном на руках — противоречие, которое заметит любой читатель.",
+  "extends": ["object-program.json"],
+  "params": [
+    {
+      "key": "stages_count",
+      "title": "Этапов программы",
+      "group": "устройство",
+      "mention": "background",
+      "directive": "из скольких этапов состоит программа (столько этапов и описать)",
+      "domain": {"kind": "int", "min": 2, "max": 5, "weights": [18, 40, 30, 12]}
+    },
+    {
+      "key": "group_size",
+      "title": "Человек в группе",
+      "group": "устройство",
+      "domain": {"kind": "int", "min": 5, "max": 16}
+    },
+    {
+      "key": "session_minutes",
+      "title": "Длительность индивидуальной встречи, минут",
+      "group": "устройство",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "45", "weight": 40},
+        {"value": "60", "weight": 50},
+        {"value": "90", "weight": 10}
+      ]}
+    },
+    {
+      "key": "wake_up",
+      "title": "Подъём",
+      "group": "распорядок",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "6:30", "weight": 14},
+        {"value": "7:00", "weight": 38},
+        {"value": "7:30", "weight": 30},
+        {"value": "8:00", "weight": 18}
+      ]}
+    },
+    {
+      "key": "sport_per_week",
+      "title": "Занятий спортом в неделю",
+      "group": "распорядок",
+      "domain": {"kind": "int", "min": 0, "max": 7, "weights": [8, 6, 14, 22, 16, 18, 6, 10]}
+    },
+    {
+      "key": "admission_checks",
+      "title": "Что проверяют при поступлении",
+      "group": "поступление",
+      "domain": {"kind": "multi_enum", "min_pick": 1, "max_pick": 3, "variants": [
+        {"value": "осмотр нарколога", "weight": 34},
+        {"value": "осмотр психиатра", "weight": 22},
+        {"value": "анализы", "weight": 24},
+        {"value": "психологическое тестирование", "weight": 20}
+      ]}
+    },
+    {
+      "key": "phone_policy",
+      "title": "Телефон",
+      "group": "правила",
+      "identity": true,
+      "domain": {"kind": "enum", "variants": [
+        {"value": "сдаётся на весь курс, звонки с телефона центра", "weight": 26},
+        {"value": "выдаётся на время звонков по расписанию", "weight": 44},
+        {"value": "на руках после первого этапа", "weight": 30}
+      ]}
+    },
+    {
+      "key": "visits_policy",
+      "title": "Посещения",
+      "group": "правила",
+      "identity": true,
+      "domain": {"kind": "enum", "variants": [
+        {"value": "не раньше чем через месяц", "weight": 26},
+        {"value": "после первых двух недель, по выходным", "weight": 42},
+        {"value": "по выходным с первой недели", "weight": 20},
+        {"value": "в любой день по договорённости", "weight": 12}
+      ]}
+    },
+    {
+      "key": "family_sessions",
+      "title": "Встреч с семьёй за курс",
+      "group": "семья",
+      "mention": "background",
+      "directive": "как часто семья участвует в работе (число не называть)",
+      "domain": {"kind": "int", "min": 0, "max": 12}
+    },
+    {
+      "key": "aftercare_format",
+      "title": "Как устроено сопровождение после выписки",
+      "group": "после выписки",
+      "identity": true,
+      "domain": {"kind": "enum", "variants": [
+        {"value": "нет", "weight": 14},
+        {"value": "онлайн-группа выпускников", "weight": 30},
+        {"value": "очные встречи выпускников раз в неделю", "weight": 30},
+        {"value": "куратор на связи и встречи раз в месяц", "weight": 26}
+      ]}
+    },
+    {
+      "key": "relapse_policy",
+      "title": "Что делают при срыве",
+      "group": "после выписки",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "разбор срыва с консультантом и корректировка плана", "weight": 40},
+        {"value": "возвращение на короткий курс", "weight": 30},
+        {"value": "перевод на амбулаторное сопровождение", "weight": 30}
+      ]}
+    },
+    {
+      "key": "discharge_early_policy",
+      "title": "Если человек хочет уйти раньше",
+      "group": "правила",
+      "mention": "background",
+      "directive": "как поступают, если человек хочет уйти раньше срока (одной фразой, спокойно; уход всегда добровольный)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "разговор с консультантом и звонок семье", "weight": 50},
+        {"value": "встреча с психологом, потом решение", "weight": 30},
+        {"value": "собрание группы по просьбе самого человека", "weight": 20}
+      ]}
+    }
+  ],
+  "hard": [
+    {"name": "строгий_режим_без_телефона", "expr": "regime != 'строгий' or phone_policy != 'на руках после первого этапа'", "message": "строгий режим с телефоном на руках"},
+    {"name": "мягкий_режим_с_телефоном", "expr": "regime != 'мягкий' or phone_policy != 'сдаётся на весь курс, звонки с телефона центра'", "message": "мягкий режим, при котором телефон сдаётся на весь курс"},
+    {"name": "строгий_режим_без_ежедневных_посещений", "expr": "regime != 'строгий' or visits_policy != 'в любой день по договорённости'", "message": "строгий режим с посещениями в любой день"},
+    {"name": "месяц_без_посещений_не_при_коротком_курсе", "expr": "visits_policy != 'не раньше чем через месяц' or not in(duration, '28 дней')", "message": "первое посещение позже конца 28-дневного курса"},
+    {"name": "сопровождение_с_месяцами", "expr": "(aftercare_format == 'нет') == (aftercare_months == 0)", "message": "формат сопровождения не сходится со сроком"},
+    {"name": "семейная_программа_значит_встречи", "expr": "not family_program or family_sessions >= 2", "message": "семейная программа без встреч с семьёй"},
+    {"name": "подростки_с_частыми_встречами", "expr": "focus != 'подростки и молодёжь' or family_sessions >= 4", "message": "подростковая программа почти без встреч с семьёй"},
+    {"name": "премиум_небольшие_группы", "expr": "segment != 'премиум' or group_size <= 10", "message": "в премиуме большие группы"},
+    {"name": "двойной_диагноз_с_психиатром", "expr": "focus != 'двойной диагноз' or has(admission_checks, 'осмотр психиатра')", "message": "двойной диагноз без осмотра психиатра при поступлении"},
+    {"name": "короткий_курс_мало_этапов", "expr": "duration != '28 дней' or stages_count <= 3", "message": "больше трёх этапов в 28-дневном курсе"},
+    {"name": "длинный_курс_не_два_этапа", "expr": "not in(duration, '3 месяца', '6 месяцев') or stages_count >= 3", "message": "длинный курс из двух этапов"}
+  ],
+  "soft": [
+    {"name": "короткие_курсы_проще", "when": "in(duration, '28 дней', '45 дней')", "then": [{"kind": "range", "param": "stages_count", "max": 3.0}]},
+    {"name": "длинные_курсы_многоэтапны", "when": "in(duration, '3 месяца', '6 месяцев')", "then": [{"kind": "range", "param": "stages_count", "min": 3.0}]},
+    {"name": "премиум_маленькие_группы", "when": "segment == 'премиум'", "then": [
+      {"kind": "range", "param": "group_size", "max": 10.0},
+      {"kind": "weight", "param": "session_minutes", "value": "45", "factor": 0.3}
+    ]},
+    {"name": "эконом_большие_группы", "when": "segment == 'эконом'", "then": [
+      {"kind": "range", "param": "group_size", "min": 8.0},
+      {"kind": "weight", "param": "session_minutes", "value": "90", "factor": 0.0}
+    ]},
+    {"name": "строгий_режим_ранний_подъём", "when": "regime == 'строгий'", "then": [
+      {"kind": "weight", "param": "wake_up", "value": "6:30", "factor": 3.0},
+      {"kind": "weight", "param": "wake_up", "value": "8:00", "factor": 0.2}
+    ]},
+    {"name": "мягкий_режим_поздний_подъём", "when": "regime == 'мягкий'", "then": [
+      {"kind": "weight", "param": "wake_up", "value": "6:30", "factor": 0.1},
+      {"kind": "weight", "param": "wake_up", "value": "8:00", "factor": 2.5}
+    ]},
+    {"name": "двойной_диагноз_к_психиатру", "when": "focus == 'двойной диагноз'", "then": [
+      {"kind": "weight", "param": "admission_checks", "value": "осмотр психиатра", "factor": 10.0}
+    ]},
+    {"name": "детокс_к_наркологу_и_анализам", "when": "detox_included", "then": [
+      {"kind": "weight", "param": "admission_checks", "value": "осмотр нарколога", "factor": 3.0},
+      {"kind": "weight", "param": "admission_checks", "value": "анализы", "factor": 2.0}
+    ]},
+    {"name": "строгий_режим_телефон_сдан", "when": "regime == 'строгий'", "then": [
+      {"kind": "weight", "param": "phone_policy", "value": "на руках после первого этапа", "factor": 0.0},
+      {"kind": "weight", "param": "phone_policy", "value": "сдаётся на весь курс, звонки с телефона центра", "factor": 2.5},
+      {"kind": "weight", "param": "visits_policy", "value": "в любой день по договорённости", "factor": 0.0},
+      {"kind": "weight", "param": "visits_policy", "value": "не раньше чем через месяц", "factor": 2.0}
+    ]},
+    {"name": "мягкий_режим_телефон_на_руках", "when": "regime == 'мягкий'", "then": [
+      {"kind": "weight", "param": "phone_policy", "value": "сдаётся на весь курс, звонки с телефона центра", "factor": 0.0},
+      {"kind": "weight", "param": "phone_policy", "value": "на руках после первого этапа", "factor": 2.0},
+      {"kind": "weight", "param": "visits_policy", "value": "не раньше чем через месяц", "factor": 0.2}
+    ]},
+    {"name": "короткий_курс_посещения_раньше", "when": "duration == '28 дней'", "then": [
+      {"kind": "weight", "param": "visits_policy", "value": "не раньше чем через месяц", "factor": 0.0}
+    ]},
+    {"name": "семейная_программа_встречи", "when": "family_program", "then": [{"kind": "range", "param": "family_sessions", "min": 2.0}]},
+    {"name": "подросткам_много_встреч", "when": "focus == 'подростки и молодёжь'", "then": [{"kind": "range", "param": "family_sessions", "min": 4.0}]},
+    {"name": "без_семейной_программы_мало_встреч", "when": "not family_program", "then": [{"kind": "range", "param": "family_sessions", "max": 2.0}]},
+    {"name": "без_сопровождения_нет_формата", "when": "aftercare_months == 0", "then": [{"kind": "force", "param": "aftercare_format", "value": "нет"}]},
+    {"name": "с_сопровождением_есть_формат", "when": "aftercare_months > 0", "then": [{"kind": "weight", "param": "aftercare_format", "value": "нет", "factor": 0.0}]},
+    {"name": "без_сопровождения_не_амбулаторно", "when": "aftercare_months == 0", "then": [
+      {"kind": "weight", "param": "relapse_policy", "value": "перевод на амбулаторное сопровождение", "factor": 0.2}
+    ]},
+    {"name": "трудотерапия_к_спорту", "when": "labor_therapy", "then": [{"kind": "range", "param": "sport_per_week", "max": 5.0}]}
+  ]
+}

@@ -394,3 +394,35 @@ fn director_v2_life_adds_up() {
     }
     assert!((120..=320).contains(&founders), "основателей {founders} из 400");
 }
+
+/// Здание v2: санузлов хватает, участок вмещает людей, палата детоксикации
+/// не остаётся без круглосуточной медсестры.
+#[test]
+fn place_v2_facts_agree() {
+    for r in population("object-place-v2.json", 34) {
+        let (cap, baths) = (int(&r, "capacity"), int(&r, "bathrooms"));
+        assert!(baths * 8 >= cap && baths * 2 <= cap, "{baths} санузлов на {cap} человек");
+        assert!(int(&r, "land_area") >= cap);
+        if text(&r, "medical_room") == "медкабинет и палата для детоксикации" {
+            assert_eq!(text(&r, "nurse_on_site"), "круглосуточно");
+        }
+        if text(&r, "segment") == "премиум" {
+            assert_eq!(text(&r, "kitchen"), "свой повар на кухне центра");
+        }
+    }
+}
+
+/// Программа v2: правила не спорят с режимом, сопровождение — со сроком.
+#[test]
+fn program_v2_rules_agree_with_regime() {
+    for r in population("object-program-v2.json", 35) {
+        if text(&r, "regime") == "строгий" {
+            assert_ne!(text(&r, "phone_policy"), "на руках после первого этапа");
+        }
+        assert_eq!(text(&r, "aftercare_format") == "нет", int(&r, "aftercare_months") == 0);
+        if text(&r, "duration") == "28 дней" {
+            assert!(int(&r, "stages_count") <= 3);
+            assert_ne!(text(&r, "visits_policy"), "не раньше чем через месяц");
+        }
+    }
+}

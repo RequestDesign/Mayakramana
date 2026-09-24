@@ -1,0 +1,208 @@
+{
+  "name": "object-place-v2",
+  "version": 2,
+  "description": "Черновик на согласование. Расширяет здание тем, что семья спрашивает по телефону первым делом: как добраться, есть ли медкабинет, сколько человек на санузел, кто готовит, что с охраной и можно ли с коляской. Всё это — факты, которые потом нельзя будет опровергнуть снимком или соседней карточкой, поэтому их задаёт код, а не модель.",
+  "extends": ["object-place.json"],
+  "params": [
+    {
+      "key": "nearest_city",
+      "title": "Ближайший город",
+      "group": "расположение",
+      "mention": "background",
+      "directive": "до какого города ближе всего (без названия, для описания дороги)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "областной центр", "weight": 44},
+        {"value": "районный центр", "weight": 36},
+        {"value": "город-миллионник", "weight": 20}
+      ]}
+    },
+    {
+      "key": "road",
+      "title": "Дорога",
+      "group": "расположение",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "асфальт до ворот", "weight": 56},
+        {"value": "последний километр — грунтовка", "weight": 30},
+        {"value": "зимой дорогу чистят по заявке", "weight": 14}
+      ]}
+    },
+    {
+      "key": "public_transport",
+      "title": "Можно доехать без машины",
+      "group": "расположение",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "автобус до остановки рядом", "weight": 38},
+        {"value": "электричка и такси", "weight": 32},
+        {"value": "только на машине", "weight": 30}
+      ]}
+    },
+    {
+      "key": "land_area",
+      "title": "Участок, соток",
+      "group": "территория",
+      "identity": true,
+      "domain": {"kind": "int", "min": 8, "max": 300}
+    },
+    {
+      "key": "fence",
+      "title": "Охрана территории",
+      "group": "территория",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "забор и видеонаблюдение", "weight": 44},
+        {"value": "забор, видеонаблюдение и охрана на въезде", "weight": 30},
+        {"value": "только забор", "weight": 26}
+      ]}
+    },
+    {
+      "key": "parking",
+      "title": "Стоянка для родственников",
+      "group": "территория",
+      "domain": {"kind": "bool", "p_true": 0.7}
+    },
+    {
+      "key": "bathrooms",
+      "title": "Санузлов",
+      "group": "быт",
+      "domain": {"kind": "int", "min": 1, "max": 30}
+    },
+    {
+      "key": "kitchen",
+      "title": "Кто готовит",
+      "group": "быт",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "свой повар на кухне центра", "weight": 50},
+        {"value": "готовят сами жильцы под присмотром", "weight": 22},
+        {"value": "привозят готовое питание", "weight": 28}
+      ]}
+    },
+    {
+      "key": "meals_per_day",
+      "title": "Приёмов пищи в день",
+      "group": "быт",
+      "domain": {"kind": "int", "min": 3, "max": 5, "weights": [30, 45, 25]}
+    },
+    {
+      "key": "laundry",
+      "title": "Стирка",
+      "group": "быт",
+      "mention": "background",
+      "directive": "как устроена стирка (упоминать, только если речь о быте)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "своя прачечная", "weight": 44},
+        {"value": "стиральные машины для жильцов", "weight": 56}
+      ]}
+    },
+    {
+      "key": "medical_room",
+      "title": "Медицинский кабинет",
+      "group": "медицина",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "нет", "weight": 26},
+        {"value": "медкабинет", "weight": 44},
+        {"value": "медкабинет и палата для детоксикации", "weight": 30}
+      ]}
+    },
+    {
+      "key": "nurse_on_site",
+      "title": "Медсестра на месте",
+      "group": "медицина",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "нет", "weight": 26},
+        {"value": "днём", "weight": 36},
+        {"value": "круглосуточно", "weight": 38}
+      ]}
+    },
+    {
+      "key": "step_free",
+      "title": "Без ступенек на первом этаже",
+      "group": "быт",
+      "domain": {"kind": "bool", "p_true": 0.4}
+    },
+    {
+      "key": "visiting_room",
+      "title": "Комната для встреч с родственниками",
+      "group": "быт",
+      "domain": {"kind": "bool", "p_true": 0.55}
+    },
+    {
+      "key": "heating",
+      "title": "Отопление",
+      "group": "быт",
+      "usage": "store_only",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "газовый котёл", "weight": 52},
+        {"value": "центральное", "weight": 20},
+        {"value": "электрическое", "weight": 16},
+        {"value": "твердотопливный котёл", "weight": 12}
+      ]}
+    }
+  ],
+  "hard": [
+    {"name": "участок_под_размер", "expr": "land_area >= capacity", "message": "участок меньше сотки на человека"},
+    {"name": "большой_участок_не_в_пригороде", "expr": "not in(setting, 'окраина посёлка', 'пригород') or land_area <= 60", "message": "огромный участок в пригороде"},
+    {"name": "санузлов_не_больше_жильцов", "expr": "bathrooms * 2 <= capacity", "message": "санузлов больше, чем по одному на двоих"},
+    {"name": "санузел_не_больше_чем_на_восьмерых", "expr": "bathrooms * 8 >= capacity", "message": "больше восьми человек на санузел"},
+    {"name": "премиум_без_очередей", "expr": "segment != 'премиум' or bathrooms * 3 >= capacity", "message": "премиум при больше чем трёх человек на санузел"},
+    {"name": "одноместные_с_санузлами", "expr": "room_type != 'одноместные комнаты' or bathrooms * 2 >= capacity", "message": "одноместные комнаты при общих санузлах"},
+    {"name": "детокс_с_медсестрой_круглосуточно", "expr": "medical_room != 'медкабинет и палата для детоксикации' or nurse_on_site == 'круглосуточно'", "message": "палата детоксикации без круглосуточной медсестры"},
+    {"name": "медсестре_нужен_кабинет", "expr": "nurse_on_site == 'нет' or medical_room != 'нет'", "message": "медсестра на месте без медкабинета"},
+    {"name": "премиум_с_медициной", "expr": "segment != 'премиум' or medical_room != 'нет'", "message": "премиум без медкабинета"},
+    {"name": "премиум_без_самоготовки", "expr": "segment != 'премиум' or kitchen == 'свой повар на кухне центра'", "message": "в премиуме готовят сами жильцы или едят привозное"},
+    {"name": "пригород_с_транспортом", "expr": "not in(setting, 'окраина посёлка', 'пригород') or public_transport != 'только на машине'", "message": "пригород, до которого не доехать без машины"},
+    {"name": "далеко_без_автобуса", "expr": "distance_km <= 60 or public_transport != 'автобус до остановки рядом'", "message": "автобус до остановки рядом при удалённости больше 60 км"}
+  ],
+  "soft": [
+    {"name": "подмосковье_к_миллионнику", "when": "in(region, 'Подмосковье', 'Ленинградская область')", "then": [
+      {"kind": "weight", "param": "nearest_city", "value": "город-миллионник", "factor": 4.0}
+    ]},
+    {"name": "без_миллионников", "when": "region == 'Северо-Запад'", "then": [
+      {"kind": "weight", "param": "nearest_city", "value": "город-миллионник", "factor": 0.0}
+    ]},
+    {"name": "далеко_хуже_дорога", "when": "distance_km >= 60", "then": [
+      {"kind": "weight", "param": "road", "value": "асфальт до ворот", "factor": 0.5},
+      {"kind": "weight", "param": "public_transport", "value": "автобус до остановки рядом", "factor": 0.0},
+      {"kind": "weight", "param": "public_transport", "value": "только на машине", "factor": 2.0}
+    ]},
+    {"name": "пригород_асфальт_и_автобус", "when": "in(setting, 'окраина посёлка', 'пригород')", "then": [
+      {"kind": "weight", "param": "road", "value": "асфальт до ворот", "factor": 4.0},
+      {"kind": "weight", "param": "public_transport", "value": "только на машине", "factor": 0.0},
+      {"kind": "range", "param": "land_area", "max": 60.0}
+    ]},
+    {"name": "участок_от_вместимости", "when": "capacity >= 30", "then": [{"kind": "range", "param": "land_area", "min": 40.0}]},
+    {"name": "база_и_санаторий_на_большом_участке", "when": "in(building_type, 'переоборудованная база отдыха', 'бывший санаторный корпус', 'загородная усадьба')", "then": [
+      {"kind": "range", "param": "land_area", "min": 50.0}
+    ]},
+    {"name": "коттедж_на_обычном_участке", "when": "in(building_type, 'частный коттедж', 'дом в пригороде')", "then": [
+      {"kind": "range", "param": "land_area", "max": 40.0}
+    ]},
+    {"name": "участок_не_крошечный", "when": "capacity >= 8", "then": [{"kind": "range", "param": "land_area", "min": 10.0}]},
+    {"name": "премиум_охраняется", "when": "segment == 'премиум'", "then": [
+      {"kind": "weight", "param": "fence", "value": "только забор", "factor": 0.0},
+      {"kind": "weight", "param": "fence", "value": "забор, видеонаблюдение и охрана на въезде", "factor": 2.0}
+    ]},
+    {"name": "санузлы_по_вместимости_мало", "when": "capacity <= 12", "then": [{"kind": "range", "param": "bathrooms", "max": 6.0}]},
+    {"name": "санузлы_по_вместимости_средне", "when": "capacity > 12 and capacity <= 30", "then": [{"kind": "range", "param": "bathrooms", "min": 2.0, "max": 15.0}]},
+    {"name": "санузлы_по_вместимости_много", "when": "capacity > 30", "then": [{"kind": "range", "param": "bathrooms", "min": 4.0}]},
+    {"name": "премиум_много_санузлов", "when": "segment == 'премиум'", "then": [{"kind": "range", "param": "bathrooms", "min": 3.0}]},
+    {"name": "премиум_с_поваром", "when": "segment == 'премиум'", "then": [
+      {"kind": "force", "param": "kitchen", "value": "свой повар на кухне центра"},
+      {"kind": "range", "param": "meals_per_day", "min": 4.0}
+    ]},
+    {"name": "эконом_чаще_сами", "when": "segment == 'эконом'", "then": [
+      {"kind": "weight", "param": "kitchen", "value": "готовят сами жильцы под присмотром", "factor": 2.0},
+      {"kind": "range", "param": "meals_per_day", "max": 4.0}
+    ]},
+    {"name": "премиум_с_медициной", "when": "segment == 'премиум'", "then": [
+      {"kind": "weight", "param": "medical_room", "value": "нет", "factor": 0.0},
+      {"kind": "weight", "param": "medical_room", "value": "медкабинет и палата для детоксикации", "factor": 2.0}
+    ]},
+    {"name": "без_кабинета_без_медсестры", "when": "medical_room == 'нет'", "then": [{"kind": "force", "param": "nurse_on_site", "value": "нет"}]},
+    {"name": "детокс_круглосуточно", "when": "medical_room == 'медкабинет и палата для детоксикации'", "then": [{"kind": "force", "param": "nurse_on_site", "value": "круглосуточно"}]},
+    {"name": "с_кабинетом_есть_медсестра", "when": "medical_room == 'медкабинет'", "then": [{"kind": "weight", "param": "nurse_on_site", "value": "нет", "factor": 0.3}]},
+    {"name": "одноэтажные_без_ступенек", "when": "floors == 1", "then": [{"kind": "weight", "param": "step_free", "value": "true", "factor": 2.0}]},
+    {"name": "новые_без_ступенек", "when": "year_built >= 2010", "then": [{"kind": "weight", "param": "step_free", "value": "true", "factor": 1.8}]},
+    {"name": "премиум_с_комнатой_для_встреч", "when": "segment == 'премиум'", "then": [{"kind": "weight", "param": "visiting_room", "value": "true", "factor": 4.0}]},
+    {"name": "в_пригороде_центральное", "when": "in(setting, 'окраина посёлка', 'пригород')", "then": [{"kind": "weight", "param": "heating", "value": "центральное", "factor": 3.0}]},
+    {"name": "в_лесу_без_центрального", "when": "not in(setting, 'окраина посёлка', 'пригород')", "then": [{"kind": "weight", "param": "heating", "value": "центральное", "factor": 0.1}]}
+  ]
+}

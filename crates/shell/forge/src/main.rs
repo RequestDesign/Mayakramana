@@ -102,12 +102,12 @@ fn load_generator(kind: &str) -> Result<Arc<dyn Generator>, Box<dyn std::error::
     // Объекты — отдельный генератор со своей логикой: без имён и биографий,
     // зато с несколькими снимками разного назначения.
     match kind {
-        "place" => {
-            let m = ParamModel::load("dictionaries/object-place.json")?;
+        "place" | "place-v2" => {
+            let m = ParamModel::load(format!("dictionaries/object-{kind}.json"))?;
             return Ok(Arc::new(synthforge_gen_object::ObjectGenerator::place(m)));
         }
-        "program" => {
-            let m = ParamModel::load("dictionaries/object-program.json")?;
+        "program" | "program-v2" => {
+            let m = ParamModel::load(format!("dictionaries/object-{kind}.json"))?;
             return Ok(Arc::new(synthforge_gen_object::ObjectGenerator::program(m)));
         }
         _ => {}
