@@ -757,3 +757,24 @@ async fn territory_without_facade_is_still_rendered() {
     assert_eq!(territories.len(), 3, "{seen:?}");
     assert!(territories.iter().all(|(_, p)| p.is_none()));
 }
+
+/// Пауза из другого процесса (человек в консоли или агент по протоколу):
+/// прогон на паузе ничего не берёт, после снятия доделывает всё.
+#[tokio::test]
+async fn paused_session_waits_for_resume() {
+    let gen: Arc<dyn Generator> = Arc::new(FakeGen::new());
+    let text = Arc::new(FakeText::ok());
+    let engine = Engine::new(store().await, Arc::new(FakeContent::default()), text.clone())
+        .with_config(cfg());
+
+    let session = engine.start_session(&*gen, &GenSpec::new(8).seed(41)).await.unwrap();
+    engine.pause(&session).await.unwrap();
+
+    let p = engine.run(gen.clone(), &session, None).await.unwrap();
+    assert_eq!(p.done, 0, "на паузе ничего не должно делаться");
+    assert_eq!(text.calls.load(Ordering::SeqCst), 0, "на паузе модель не вызывается");
+
+    engine.resume(&session).await.unwrap();
+    let p = engine.run(gen.clone(), &session, None).await.unwrap();
+    assert_eq!(p.done, 8);
+}

@@ -137,6 +137,11 @@ impl ImagePipeline {
                 .await?
                 .ok_or_else(|| Error::SessionNotFound(session_id.to_string()))?;
 
+            if session.status == synthforge_store::SessionStatus::Paused {
+                tracing::info!(session = %session_id, "сессия на паузе, снимки остановлены");
+                break;
+            }
+
             if session.over_budget() {
                 tracing::warn!(session = %session_id, "бюджет исчерпан, генерация изображений остановлена");
                 break;

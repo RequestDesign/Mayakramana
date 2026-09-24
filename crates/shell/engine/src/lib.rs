@@ -168,6 +168,21 @@ impl Engine {
         Ok(session.id)
     }
 
+    // ------------------------------------------------------------------ пауза
+
+    /// Поставить сессию на паузу. Идущий прогон остановится после текущей
+    /// пачки, новые запуски ничего не возьмут до `resume`.
+    pub async fn pause(&self, session_id: &str) -> Result<()> {
+        self.store.set_session_status(session_id, SessionStatus::Paused).await?;
+        Ok(())
+    }
+
+    /// Снять с паузы. Работу продолжает следующий вызов `run`.
+    pub async fn resume(&self, session_id: &str) -> Result<()> {
+        self.store.set_session_status(session_id, SessionStatus::Running).await?;
+        Ok(())
+    }
+
     // ------------------------------------------------------------------ прогон
 
     /// Обработать все задания сессии.
@@ -187,6 +202,13 @@ impl Engine {
             tracing::info!(revived, "подняты задания после прошлого прогона");
         }
 
+        // Повторный запуск после сбоя — это продолжение работы.
+        if let Some(s) = self.store.session(session_id).await? {
+            if s.status == SessionStatus::Failed {
+                self.store.set_session_status(session_id, SessionStatus::Running).await?;
+            }
+        }
+
         let worker_id = format!("w-{}", std::process::id());
         let uniq = self.uniqueness_guard(&*generator, session_id).await?;
 
@@ -196,6 +218,13 @@ impl Engine {
                 .session(session_id)
                 .await?
                 .ok_or_else(|| Error::SessionNotFound(session_id.to_string()))?;
+
+            // Пауза, поставленная человеком или агентом из другого процесса,
+            // вступает в силу между пачками: начатые задания доделываются.
+            if session.status == SessionStatus::Paused {
+                tracing::info!(session = %session_id, "сессия на паузе, прогон остановлен");
+                return Ok(self.store.progress(session_id).await?);
+            }
 
             if session.over_budget() {
                 tracing::warn!(
@@ -248,8 +277,11 @@ impl Engine {
                         Ok(Ok(())) => {}
                         Ok(Err(e)) if e.is_fatal() => {
                             tracing::error!(error = %e, "фатальная ошибка, прогон остановлен");
+                            // Не пауза: пауза — решение человека и держит сессию,
+                            // пока её не снимут. После сбоя повторный запуск
+                            // должен просто подхватить оставшееся.
                             self.store
-                                .set_session_status(session_id, SessionStatus::Paused)
+                                .set_session_status(session_id, SessionStatus::Failed)
                                 .await?;
                             return Ok(self.store.progress(session_id).await?);
                         }

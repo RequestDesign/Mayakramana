@@ -3,6 +3,8 @@
 //! ```text
 //! forge plan     doctor 500                — параметры, модель не вызывается
 //! forge run      doctor 20 [--images]      — прогон сессии
+//! forge pause    <сессия>                  — пауза, прогон встанет после пачки
+//! forge resume   <сессия> [вид]            — снять с паузы и доделать
 //! forge sessions                           — список прогонов
 //! forge watch    <сессия>                  — наблюдение в реальном времени
 //! forge show     <сессия> [n]              — посмотреть готовое
@@ -43,6 +45,8 @@ async fn main() {
     let result = match cmd {
         "plan" => cmd_plan(&args).await,
         "run" => cmd_run(&args).await,
+        "pause" => cmd_pause(&args).await,
+        "resume" => cmd_resume(&args).await,
         "sessions" => cmd_sessions().await,
         "watch" => cmd_watch(&args).await,
         "show" => cmd_show(&args).await,
@@ -69,12 +73,15 @@ fn usage() {
     eprintln!(
         "forge plan     <вид> <сколько> [--seed N]\n\
          forge run      <вид> <сколько> [--seed N] [--brief «…»] [--images] [--budget 5.0]\n\
+         forge pause    <сессия>\n\
+         forge resume   <сессия> [вид]\n\
          forge sessions\n\
          forge watch    <сессия>\n\
          forge show     <сессия> [сколько]\n\
          forge mark     <сессия> <ключ> good|bad [метки…] [--comment «…»]\n\
          forge feedback <сессия>\n\n\
-         Виды: doctor, consultant"
+         Виды: doctor, consultant, psychologist, director, place, program\n\
+         Черновики на согласовании: те же с суффиксом -v2 (doctor-v2, place-v2…)"
     );
 }
 
@@ -204,19 +211,7 @@ async fn cmd_run(args: &[String]) -> R {
     }
 
     let proxy = std::env::var("OUTBOUND_PROXY").ok().filter(|p| !p.trim().is_empty());
-    let xai = std::env::var("XAI_API_KEY").map_err(|_| "не задан XAI_API_KEY")?;
-
-    let text = Arc::new(OpenAiCompatText::new(
-        ProviderConfig::xai(&xai, TEXT_MODEL).with_proxy(proxy.clone()),
-        catalog.clone(),
-    )?);
-
-    let content = Arc::new(JsonlStore::new(OUT_DIR));
-    let engine = Engine::new(store.clone(), content, text).with_config(EngineConfig {
-        concurrency: 4,
-        claim_size: 16,
-        stale_after: Duration::from_secs(900),
-    });
+    let engine = text_engine(store.clone(), catalog.clone())?;
 
     let session = engine.start_session(&*g, &spec).await?;
     println!("Сессия {session}\n");
@@ -267,6 +262,63 @@ async fn cmd_run(args: &[String]) -> R {
     println!("\nРезультат: {OUT_DIR}/{}.jsonl", g.descriptor().collection);
     println!("Посмотреть: forge show {session}");
 
+    Ok(())
+}
+
+/// Движок с текстовой моделью: общий для запуска и продолжения прогона.
+fn text_engine(store: Store, catalog: Arc<Catalog>) -> Result<Engine, Box<dyn std::error::Error>> {
+    let proxy = std::env::var("OUTBOUND_PROXY").ok().filter(|p| !p.trim().is_empty());
+    let xai = std::env::var("XAI_API_KEY").map_err(|_| "не задан XAI_API_KEY")?;
+
+    let text = Arc::new(OpenAiCompatText::new(
+        ProviderConfig::xai(&xai, TEXT_MODEL).with_proxy(proxy),
+        catalog,
+    )?);
+
+    let content = Arc::new(JsonlStore::new(OUT_DIR));
+    Ok(Engine::new(store, content, text).with_config(EngineConfig {
+        concurrency: 4,
+        claim_size: 16,
+        stale_after: Duration::from_secs(900),
+    }))
+}
+
+/// Поставить прогон на паузу. Идущий прогон — хоть в другом окне, хоть у
+/// агента — остановится после текущей пачки.
+async fn cmd_pause(args: &[String]) -> R {
+    let session = arg(args, 1).ok_or("нужен идентификатор сессии")?;
+    let store = open_store().await?;
+    store.session(session).await?.ok_or("сессия не найдена")?;
+    store.set_session_status(session, synthforge_store::SessionStatus::Paused).await?;
+    println!("Сессия {session} на паузе. Продолжить: forge resume {session}");
+    Ok(())
+}
+
+/// Снять с паузы и доделать оставшееся.
+///
+/// Вид можно указать явно: у черновиков v2 сессия записана под видом роли, а
+/// промпты надо строить по тому словарю, по которому она планировалась.
+async fn cmd_resume(args: &[String]) -> R {
+    let session = arg(args, 1).ok_or("нужен идентификатор сессии")?;
+    let store = open_store().await?;
+    let s = store.session(session).await?.ok_or("сессия не найдена")?;
+    let kind = arg(args, 2).map(str::to_string).unwrap_or_else(|| s.kind.clone());
+    let g = load_generator(&kind)?;
+
+    let catalog = Arc::new(Catalog::load("config/model-catalog.json")?);
+    let engine = text_engine(store.clone(), catalog)?;
+    engine.resume(session).await?;
+
+    let brief = s
+        .spec_json()
+        .ok()
+        .and_then(|v| v.get("brief").and_then(|b| b.as_str()).map(str::to_string));
+    let p = engine.run(g.clone(), session, brief.as_deref()).await?;
+    let written = engine.flush(&*g, session).await?;
+    println!(
+        "Готово {} · брак {} · ждут {} · записано {written} · ${:.4}",
+        p.done, p.dead, p.pending, p.spent_usd
+    );
     Ok(())
 }
 
