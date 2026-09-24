@@ -1,0 +1,608 @@
+{
+  "name": "role-doctor-v2",
+  "version": 2,
+  "description": "Черновик на согласование. Врач с карьерой по этапам: где и сколько работал, какая ординатура, какая категория, почему пришёл в наркологию. Стаж здесь не случайное число, а сумма этапов карьеры; число мест работы и опыт в госклинике и психиатрии тоже вычисляются из этапов — так они не могут противоречить друг другу.",
+  "extends": ["human-core-v2.json", "human-visual-v2.json"],
+  "params": [
+    {
+      "key": "education_level",
+      "title": "Уровень образования",
+      "group": "образование",
+      "identity": true,
+      "domain": {"kind": "enum", "variants": [
+        {"value": "специалитет и ординатура", "weight": 46},
+        {"value": "ординатура и профпереподготовка", "weight": 24},
+        {"value": "кандидат медицинских наук", "weight": 22},
+        {"value": "доктор медицинских наук", "weight": 8}
+      ]}
+    },
+    {
+      "key": "alma_mater",
+      "title": "Где учился",
+      "group": "образование",
+      "identity": true,
+      "note": "Описательно, без названий реальных вузов — приписывать реальному учреждению несуществующих выпускников нельзя.",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "столичный медицинский университет", "weight": 22},
+        {"value": "медицинский университет в Санкт-Петербурге", "weight": 12},
+        {"value": "медицинский университет в Поволжье", "weight": 16},
+        {"value": "медицинский университет на Урале", "weight": 14},
+        {"value": "медицинский университет в Сибири", "weight": 14},
+        {"value": "медицинский университет на юге России", "weight": 14},
+        {"value": "медицинский университет на Дальнем Востоке", "weight": 8}
+      ]}
+    },
+    {
+      "key": "graduation_age",
+      "title": "Возраст окончания вуза",
+      "usage": "store_only",
+      "domain": {"kind": "int", "min": 23, "max": 31, "weights": [30, 28, 16, 10, 6, 4, 3, 2, 1]}
+    },
+    {
+      "key": "graduation_year",
+      "title": "Год окончания вуза",
+      "group": "образование",
+      "note": "Вычисляется из возраста — не может разойтись с ним.",
+      "domain": {"kind": "computed", "expr": "2026 - age + graduation_age"}
+    },
+    {
+      "key": "red_diploma",
+      "title": "Диплом с отличием",
+      "group": "образование",
+      "domain": {"kind": "bool", "p_true": 0.18}
+    },
+    {
+      "key": "residency",
+      "title": "Ординатура",
+      "group": "образование",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "психиатрия-наркология", "weight": 45},
+        {"value": "психиатрия", "weight": 32},
+        {"value": "неврология", "weight": 10},
+        {"value": "анестезиология-реаниматология", "weight": 13}
+      ]}
+    },
+    {
+      "key": "specialty",
+      "title": "Специальность",
+      "group": "опыт",
+      "identity": true,
+      "mention": "required",
+      "note": "Следует из ординатуры: психотерапевтом или наркологом без психиатрической базы в России не стать.",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "психиатр-нарколог", "weight": 46},
+        {"value": "психиатр", "weight": 22},
+        {"value": "психотерапевт", "weight": 18},
+        {"value": "нарколог-реаниматолог", "weight": 8},
+        {"value": "невролог с наркологической практикой", "weight": 6}
+      ]}
+    },
+    {
+      "key": "second_education",
+      "title": "Второе образование",
+      "group": "образование",
+      "domain": {"kind": "bool", "p_true": 0.2}
+    },
+
+    {
+      "key": "career_1_type",
+      "title": "Первое место работы",
+      "group": "карьера",
+      "identity": true,
+      "note": "Тип учреждения, без названия: конкретное название реальной больницы приписало бы ей несуществующего сотрудника.",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "районная больница", "weight": 18},
+        {"value": "городской наркологический диспансер", "weight": 22},
+        {"value": "областной наркологический диспансер", "weight": 16},
+        {"value": "психиатрическая больница", "weight": 18},
+        {"value": "скорая помощь", "weight": 10},
+        {"value": "военный госпиталь", "weight": 5},
+        {"value": "частная клиника", "weight": 11}
+      ]}
+    },
+    {
+      "key": "career_1_years",
+      "title": "Лет на первом месте",
+      "group": "карьера",
+      "domain": {"kind": "int", "min": 1, "max": 12}
+    },
+    {
+      "key": "career_2_type",
+      "title": "Второе место работы",
+      "group": "карьера",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "нет", "weight": 25},
+        {"value": "районная больница", "weight": 8},
+        {"value": "городской наркологический диспансер", "weight": 16},
+        {"value": "областной наркологический диспансер", "weight": 14},
+        {"value": "психиатрическая больница", "weight": 12},
+        {"value": "частная клиника", "weight": 14},
+        {"value": "реабилитационный центр", "weight": 11}
+      ]}
+    },
+    {
+      "key": "career_2_years",
+      "title": "Лет на втором месте",
+      "group": "карьера",
+      "domain": {"kind": "int", "min": 0, "max": 12}
+    },
+    {
+      "key": "career_3_type",
+      "title": "Третье место работы",
+      "group": "карьера",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "нет", "weight": 50},
+        {"value": "областной наркологический диспансер", "weight": 10},
+        {"value": "психиатрическая больница", "weight": 8},
+        {"value": "частная клиника", "weight": 16},
+        {"value": "реабилитационный центр", "weight": 16}
+      ]}
+    },
+    {
+      "key": "career_3_years",
+      "title": "Лет на третьем месте",
+      "group": "карьера",
+      "domain": {"kind": "int", "min": 0, "max": 12}
+    },
+    {
+      "key": "current_place",
+      "title": "Где работает сейчас",
+      "group": "карьера",
+      "identity": true,
+      "domain": {"kind": "enum", "variants": [
+        {"value": "реабилитационный центр", "weight": 40},
+        {"value": "частная наркологическая клиника", "weight": 30},
+        {"value": "государственный наркологический диспансер", "weight": 20},
+        {"value": "частная практика", "weight": 10}
+      ]}
+    },
+    {
+      "key": "current_years",
+      "title": "Лет на нынешнем месте",
+      "group": "карьера",
+      "domain": {"kind": "int", "min": 1, "max": 15}
+    },
+    {
+      "key": "experience_years",
+      "title": "Стаж, лет",
+      "group": "опыт",
+      "identity": true,
+      "note": "Сумма этапов карьеры. Не сэмплируется отдельно — иначе «стаж 18 лет» соседствовал бы с этапами на 6 и 4 года.",
+      "domain": {"kind": "computed", "expr": "career_1_years + career_2_years + career_3_years + current_years"}
+    },
+    {
+      "key": "workplaces_count",
+      "title": "Мест работы за карьеру",
+      "group": "карьера",
+      "mention": "background",
+      "directive": "сколько этапов карьеры описать (число в текст не переносить)",
+      "domain": {"kind": "computed", "expr": "2 + (career_2_type != 'нет') + (career_3_type != 'нет')"}
+    },
+    {
+      "key": "state_clinic_background",
+      "title": "Работал в государственной медицине",
+      "group": "опыт",
+      "domain": {"kind": "computed", "expr": "in(career_1_type, 'районная больница', 'городской наркологический диспансер', 'областной наркологический диспансер', 'психиатрическая больница', 'скорая помощь', 'военный госпиталь') or in(career_2_type, 'районная больница', 'городской наркологический диспансер', 'областной наркологический диспансер', 'психиатрическая больница') or in(career_3_type, 'областной наркологический диспансер', 'психиатрическая больница') or current_place == 'государственный наркологический диспансер'"}
+    },
+    {
+      "key": "psychiatry_experience",
+      "title": "Опыт в психиатрии",
+      "group": "опыт",
+      "note": "Следует из ординатуры и мест работы, а не выбирается отдельно.",
+      "domain": {"kind": "computed", "expr": "in(residency, 'психиатрия-наркология', 'психиатрия') or career_1_type == 'психиатрическая больница' or career_2_type == 'психиатрическая больница' or career_3_type == 'психиатрическая больница'"}
+    },
+    {
+      "key": "current_position",
+      "title": "Должность",
+      "group": "карьера",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "врач", "weight": 60},
+        {"value": "заведующий отделением", "weight": 20},
+        {"value": "главный врач", "weight": 8},
+        {"value": "врач-консультант", "weight": 12}
+      ]}
+    },
+    {
+      "key": "qualification_category",
+      "title": "Квалификационная категория",
+      "group": "образование",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "высшая", "weight": 30},
+        {"value": "первая", "weight": 28},
+        {"value": "вторая", "weight": 14},
+        {"value": "без категории", "weight": 28}
+      ]}
+    },
+    {
+      "key": "qualification_topics",
+      "title": "Повышение квалификации",
+      "group": "образование",
+      "note": "Темы, а не счётчик: «прошёл шесть повышений квалификации» звучало как выписка из личного дела.",
+      "domain": {"kind": "multi_enum", "min_pick": 0, "max_pick": 3, "variants": [
+        {"value": "аддиктология", "weight": 22},
+        {"value": "психотерапия зависимостей", "weight": 18},
+        {"value": "неотложная наркология", "weight": 12},
+        {"value": "мотивационное интервьюирование", "weight": 14},
+        {"value": "когнитивно-поведенческая терапия", "weight": 12},
+        {"value": "работа с созависимыми", "weight": 10},
+        {"value": "психофармакология", "weight": 12}
+      ]}
+    },
+    {
+      "key": "english",
+      "title": "Английский",
+      "group": "образование",
+      "mention": "background",
+      "directive": "английский (фон, упоминать только если текст касается профессиональной литературы)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "нет", "weight": 50},
+        {"value": "читает профессиональную литературу", "weight": 38},
+        {"value": "свободный", "weight": 12}
+      ]}
+    },
+    {
+      "key": "detox_experience",
+      "title": "Опыт детоксикации и купирования",
+      "group": "опыт",
+      "domain": {"kind": "bool", "p_true": 0.7}
+    },
+    {
+      "key": "practice",
+      "title": "С кем работал",
+      "group": "практика",
+      "domain": {"kind": "multi_enum", "min_pick": 1, "max_pick": 4, "variants": [
+        {"value": "наркозависимые", "weight": 30},
+        {"value": "алкогольная зависимость", "weight": 30},
+        {"value": "игровая зависимость", "weight": 10},
+        {"value": "созависимые родственники", "weight": 14},
+        {"value": "двойной диагноз", "weight": 12},
+        {"value": "подростковая зависимость", "weight": 8}
+      ]}
+    },
+    {
+      "key": "methods",
+      "title": "Методы",
+      "group": "практика",
+      "domain": {"kind": "multi_enum", "min_pick": 1, "max_pick": 3, "variants": [
+        {"value": "фармакотерапия", "weight": 30},
+        {"value": "мотивационное интервьюирование", "weight": 18},
+        {"value": "когнитивно-поведенческая терапия", "weight": 14},
+        {"value": "групповая психотерапия", "weight": 14},
+        {"value": "семейная терапия", "weight": 10},
+        {"value": "сопровождение по программе двенадцати шагов", "weight": 10}
+      ]}
+    },
+    {
+      "key": "family_counseling",
+      "title": "Консультирует родственников",
+      "group": "практика",
+      "domain": {"kind": "bool", "p_true": 0.5}
+    },
+    {
+      "key": "academic_activity",
+      "title": "Научная или преподавательская работа",
+      "group": "практика",
+      "domain": {"kind": "bool", "p_true": 0.25}
+    },
+    {
+      "key": "publications",
+      "title": "Публикаций",
+      "group": "практика",
+      "mention": "background",
+      "directive": "насколько заметен в профессиональной среде (число в текст не переносить)",
+      "domain": {"kind": "int", "min": 0, "max": 25,
+        "weights": [40, 14, 12, 10, 8, 6, 5, 4, 3, 3, 2, 2, 2, 1.5, 1.5, 1, 1, 1, 1, 1, 0.8, 0.8, 0.6, 0.6, 0.5, 0.5]}
+    },
+    {
+      "key": "research_area",
+      "title": "Научные интересы",
+      "group": "практика",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "нет", "weight": 60},
+        {"value": "зависимость у подростков", "weight": 8},
+        {"value": "сочетание зависимости и психических расстройств", "weight": 10},
+        {"value": "фармакотерапия зависимостей", "weight": 8},
+        {"value": "ремиссия и рецидив", "weight": 8},
+        {"value": "созависимость", "weight": 6}
+      ]}
+    },
+    {
+      "key": "teaches_residents",
+      "title": "Ведёт ординаторов",
+      "group": "практика",
+      "domain": {"kind": "bool", "p_true": 0.15}
+    },
+    {
+      "key": "conferences",
+      "title": "Выступает на конференциях",
+      "group": "практика",
+      "domain": {"kind": "bool", "p_true": 0.2}
+    },
+    {
+      "key": "patients_per_week",
+      "title": "Пациентов в неделю",
+      "group": "практика",
+      "mention": "background",
+      "directive": "рабочая нагрузка в пациентах в неделю (передать ощущение нагрузки, число не называть)",
+      "domain": {"kind": "int", "min": 8, "max": 60}
+    },
+    {
+      "key": "patient_age_focus",
+      "title": "Возрастной фокус пациентов",
+      "group": "практика",
+      "identity": true,
+      "mention": "background",
+      "directive": "о каких пациентах писать (показать через описание работы, не называть категорией)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "взрослые", "weight": 60},
+        {"value": "смешанный", "weight": 22},
+        {"value": "подростки и молодёжь", "weight": 10},
+        {"value": "пациенты старшего возраста", "weight": 8}
+      ]}
+    },
+    {
+      "key": "approach",
+      "title": "Подход к работе",
+      "group": "практика",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "медикаментозная стабилизация как основа", "weight": 24},
+        {"value": "сочетание фармакологии и психотерапии", "weight": 32},
+        {"value": "упор на мотивацию и работу с отрицанием", "weight": 20},
+        {"value": "работа с семейной системой", "weight": 14},
+        {"value": "длительное сопровождение после выписки", "weight": 10}
+      ]}
+    },
+    {
+      "key": "why_addiction",
+      "title": "Почему пришёл в наркологию",
+      "group": "путь",
+      "identity": true,
+      "note": "Главный источник различий в биографиях: у двух врачей с одинаковым образованием разные истории прихода в профессию.",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "запомнившийся случай в ординатуре", "weight": 24},
+        {"value": "зависимость у близкого человека", "weight": 12},
+        {"value": "увидел масштаб проблемы, работая на скорой", "weight": 12},
+        {"value": "пример наставника", "weight": 20},
+        {"value": "распределение после вуза", "weight": 14},
+        {"value": "интерес к психиатрии перерос в наркологию", "weight": 18}
+      ]}
+    },
+    {
+      "key": "memorable_case",
+      "title": "О каком случае вспоминает",
+      "group": "путь",
+      "mention": "background",
+      "directive": "из какого опыта взять пример (без имён, подробностей и цифр, одной фразой)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "ремиссия после многих срывов", "weight": 22},
+        {"value": "подросток, которого привели родители", "weight": 16},
+        {"value": "пожилой пациент с многолетним стажем употребления", "weight": 14},
+        {"value": "семья, которая не отступилась от человека", "weight": 20},
+        {"value": "пациент с двойным диагнозом", "weight": 12},
+        {"value": "человек, вернувшийся к работе и семье", "weight": 16}
+      ]}
+    },
+    {
+      "key": "quote_theme",
+      "title": "О чём цитата",
+      "group": "путь",
+      "mention": "background",
+      "directive": "тема цитаты (о чём сказать, не называя тему)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "мотивация", "weight": 18},
+        {"value": "срыв как часть пути", "weight": 18},
+        {"value": "роль семьи", "weight": 16},
+        {"value": "время и терпение", "weight": 16},
+        {"value": "честность с собой", "weight": 16},
+        {"value": "доверие между врачом и пациентом", "weight": 16}
+      ]}
+    },
+    {
+      "key": "attitude",
+      "title": "Как говорит о пациентах",
+      "group": "путь",
+      "mention": "background",
+      "directive": "интонация, с которой говорит о пациентах (показать тоном, не описывать)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "с уважением к выбору человека", "weight": 26},
+        {"value": "с верой в изменения", "weight": 28},
+        {"value": "прагматично и прямо", "weight": 26},
+        {"value": "с мягким юмором", "weight": 20}
+      ]}
+    },
+    {
+      "key": "awards",
+      "title": "Профессиональные награды",
+      "group": "опыт",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "нет", "weight": 80},
+        {"value": "почётная грамота", "weight": 12},
+        {"value": "благодарность регионального министерства здравоохранения", "weight": 8}
+      ]}
+    },
+    {
+      "key": "professional_association",
+      "title": "Член профессиональной ассоциации",
+      "group": "опыт",
+      "domain": {"kind": "bool", "p_true": 0.2}
+    },
+    {
+      "key": "supervision",
+      "title": "Проходит супервизию",
+      "group": "опыт",
+      "domain": {"kind": "bool", "p_true": 0.2}
+    },
+    {
+      "key": "online_consultations",
+      "title": "Консультирует онлайн",
+      "group": "опыт",
+      "domain": {"kind": "bool", "p_true": 0.35}
+    },
+
+    {"key": "full_name", "title": "ФИО", "group": "базовые", "identity": true, "mention": "required", "domain": {"kind": "derived"}},
+    {"key": "biography", "title": "Биография", "group": "текст", "domain": {"kind": "derived"}},
+    {"key": "professional_path", "title": "Профессиональный путь", "group": "текст", "domain": {"kind": "derived"}},
+    {"key": "quote", "title": "Цитата", "group": "текст", "domain": {"kind": "derived"}}
+  ],
+  "hard": [
+    {"name": "стаж_после_вуза_и_ординатуры", "expr": "experience_years <= age - graduation_age - 2", "message": "стаж не помещается между окончанием вуза с ординатурой и нынешним возрастом"},
+    {"name": "перерыв_в_карьере_не_больше_пяти_лет", "expr": "experience_years >= age - graduation_age - 7", "message": "необъяснимая дыра в карьере: окончил вуз давно, а стаж короткий"},
+    {"name": "ординаторы_в_государственной_или_науке", "expr": "not teaches_residents or academic_activity or current_place == 'государственный наркологический диспансер'", "message": "ведёт ординаторов в частном центре без научной работы"},
+    {"name": "докторская_не_рано", "expr": "education_level != 'доктор медицинских наук' or age >= 45", "message": "докторская степень раньше 45 лет"},
+    {"name": "кандидатская_не_рано", "expr": "education_level != 'кандидат медицинских наук' or age >= 32", "message": "кандидатская степень раньше 32 лет"},
+    {"name": "психиатрические_специальности_требуют_психиатрической_ординатуры", "expr": "not in(specialty, 'психиатр', 'психиатр-нарколог', 'психотерапевт') or in(residency, 'психиатрия-наркология', 'психиатрия')", "message": "психиатрическая специальность без психиатрической ординатуры"},
+    {"name": "реаниматолог_из_анестезиологии", "expr": "specialty != 'нарколог-реаниматолог' or residency == 'анестезиология-реаниматология'", "message": "нарколог-реаниматолог без ординатуры по анестезиологии"},
+    {"name": "невролог_из_неврологии", "expr": "specialty != 'невролог с наркологической практикой' or residency == 'неврология'", "message": "невролог без неврологической ординатуры"},
+    {"name": "реаниматолог_с_детоксом", "expr": "specialty != 'нарколог-реаниматолог' or detox_experience", "message": "нарколог-реаниматолог без опыта детоксикации"},
+    {"name": "двойной_диагноз_требует_психиатрии", "expr": "not has(practice, 'двойной диагноз') or psychiatry_experience", "message": "двойной диагноз без психиатрического опыта"},
+    {"name": "подростки_не_при_пожилых", "expr": "not has(practice, 'подростковая зависимость') or patient_age_focus != 'пациенты старшего возраста'", "message": "подростковая практика при фокусе на пожилых"},
+    {"name": "публикации_только_у_научных", "expr": "publications == 0 or academic_activity", "message": "публикации без научной работы"},
+    {"name": "научные_интересы_только_у_научных", "expr": "research_area == 'нет' or academic_activity", "message": "научные интересы без научной работы"},
+    {"name": "у_научных_есть_интересы", "expr": "not academic_activity or research_area != 'нет'", "message": "научная работа без области интересов"},
+    {"name": "заведующий_со_стажем", "expr": "current_position != 'заведующий отделением' or experience_years >= 10", "message": "заведующий отделением со стажем меньше 10 лет"},
+    {"name": "главврач_со_стажем", "expr": "current_position != 'главный врач' or experience_years >= 15", "message": "главный врач со стажем меньше 15 лет"},
+    {"name": "главврач_не_в_частной_практике", "expr": "current_position != 'главный врач' or current_place != 'частная практика'", "message": "главный врач частной практики"},
+    {"name": "ординаторов_ведут_опытные", "expr": "not teaches_residents or experience_years >= 10", "message": "ведёт ординаторов при стаже меньше 10 лет"},
+    {"name": "частная_практика_после_опыта", "expr": "current_place != 'частная практика' or experience_years >= 8", "message": "частная практика при стаже меньше 8 лет"},
+    {"name": "высшая_категория_от_7_лет", "expr": "qualification_category != 'высшая' or experience_years >= 7", "message": "высшая категория при стаже меньше 7 лет"},
+    {"name": "первая_категория_от_5_лет", "expr": "qualification_category != 'первая' or experience_years >= 5", "message": "первая категория при стаже меньше 5 лет"},
+    {"name": "вторая_категория_от_3_лет", "expr": "qualification_category != 'вторая' or experience_years >= 3", "message": "вторая категория при стаже меньше 3 лет"},
+    {"name": "скорая_в_биографии", "expr": "why_addiction != 'увидел масштаб проблемы, работая на скорой' or career_1_type == 'скорая помощь'", "message": "пришёл в наркологию со скорой, но на скорой не работал"},
+    {"name": "распределение_только_в_советское_время", "expr": "why_addiction != 'распределение после вуза' or graduation_year <= 1994", "message": "распределение после вуза в годы, когда его уже не было"},
+    {"name": "второе_место_с_годами", "expr": "(career_2_type == 'нет') == (career_2_years == 0)", "message": "у второго места работы не сходятся наличие и годы"},
+    {"name": "третье_место_с_годами", "expr": "(career_3_type == 'нет') == (career_3_years == 0)", "message": "у третьего места работы не сходятся наличие и годы"},
+    {"name": "третье_только_после_второго", "expr": "career_3_type == 'нет' or career_2_type != 'нет'", "message": "третье место работы без второго"}
+  ],
+  "soft": [
+    {"name": "ординатура_к_специальности_психиатрия", "when": "in(residency, 'психиатрия-наркология', 'психиатрия')", "then": [
+      {"kind": "weight", "param": "specialty", "value": "нарколог-реаниматолог", "factor": 0.0},
+      {"kind": "weight", "param": "specialty", "value": "невролог с наркологической практикой", "factor": 0.0}
+    ]},
+    {"name": "ординатура_наркология_к_наркологу", "when": "residency == 'психиатрия-наркология'", "then": [
+      {"kind": "weight", "param": "specialty", "value": "психиатр-нарколог", "factor": 3.0}
+    ]},
+    {"name": "ординатура_анестезиология", "when": "residency == 'анестезиология-реаниматология'", "then": [
+      {"kind": "force", "param": "specialty", "value": "нарколог-реаниматолог"}
+    ]},
+    {"name": "ординатура_неврология", "when": "residency == 'неврология'", "then": [
+      {"kind": "force", "param": "specialty", "value": "невролог с наркологической практикой"}
+    ]},
+    {"name": "реаниматологи_со_скорой", "when": "residency == 'анестезиология-реаниматология'", "then": [
+      {"kind": "weight", "param": "career_1_type", "value": "скорая помощь", "factor": 4.0}
+    ]},
+
+    {"name": "нет_второго_места_нет_лет", "when": "career_2_type == 'нет'", "then": [{"kind": "range", "param": "career_2_years", "max": 0.0}]},
+    {"name": "есть_второе_место_есть_годы", "when": "career_2_type != 'нет'", "then": [{"kind": "range", "param": "career_2_years", "min": 1.0}]},
+    {"name": "нет_третьего_без_второго", "when": "career_2_type == 'нет'", "then": [{"kind": "force", "param": "career_3_type", "value": "нет"}]},
+    {"name": "нет_третьего_места_нет_лет", "when": "career_3_type == 'нет'", "then": [{"kind": "range", "param": "career_3_years", "max": 0.0}]},
+    {"name": "есть_третье_место_есть_годы", "when": "career_3_type != 'нет'", "then": [{"kind": "range", "param": "career_3_years", "min": 1.0}]},
+
+    {"name": "молодые_с_короткой_карьерой", "when": "age <= 34", "then": [
+      {"kind": "range", "param": "career_1_years", "max": 4.0},
+      {"kind": "weight", "param": "career_2_type", "value": "нет", "factor": 5.0},
+      {"kind": "range", "param": "current_years", "max": 4.0}
+    ]},
+    {"name": "молодым_третьего_места_нет", "when": "age <= 40", "then": [
+      {"kind": "weight", "param": "career_3_type", "value": "нет", "factor": 4.0}
+    ]},
+    {"name": "зрелые_с_длинной_карьерой", "when": "age >= 48", "then": [
+      {"kind": "range", "param": "career_1_years", "min": 4.0},
+      {"kind": "weight", "param": "career_2_type", "value": "нет", "factor": 0.2},
+      {"kind": "range", "param": "current_years", "min": 3.0}
+    ]},
+    {"name": "старшим_третье_место", "when": "age >= 55", "then": [
+      {"kind": "weight", "param": "career_3_type", "value": "нет", "factor": 0.3}
+    ]},
+    {"name": "старшим_длинные_этапы", "when": "age >= 55", "then": [
+      {"kind": "range", "param": "career_1_years", "min": 7.0},
+      {"kind": "range", "param": "current_years", "min": 6.0}
+    ]},
+    {"name": "старшим_длинные_этапы_2", "when": "age >= 55 and career_2_type != 'нет'", "then": [
+      {"kind": "range", "param": "career_2_years", "min": 6.0}
+    ]},
+    {"name": "старшим_длинные_этапы_3", "when": "age >= 55 and career_3_type != 'нет'", "then": [
+      {"kind": "range", "param": "career_3_years", "min": 5.0}
+    ]},
+
+    {"name": "стаж_к_должности", "when": "experience_years < 10", "then": [
+      {"kind": "weight", "param": "current_position", "value": "заведующий отделением", "factor": 0.0},
+      {"kind": "weight", "param": "current_position", "value": "главный врач", "factor": 0.0}
+    ]},
+    {"name": "стаж_к_категории", "when": "experience_years < 7", "then": [
+      {"kind": "weight", "param": "qualification_category", "value": "высшая", "factor": 0.0}
+    ]},
+    {"name": "молодые_без_категории", "when": "experience_years < 3", "then": [
+      {"kind": "force", "param": "qualification_category", "value": "без категории"}
+    ]},
+    {"name": "возраст_к_степени", "when": "age >= 52", "then": [
+      {"kind": "weight", "param": "education_level", "value": "доктор медицинских наук", "factor": 3.0},
+      {"kind": "weight", "param": "education_level", "value": "кандидат медицинских наук", "factor": 1.8}
+    ]},
+    {"name": "молодость_без_степени", "when": "age <= 34", "then": [
+      {"kind": "weight", "param": "education_level", "value": "специалитет и ординатура", "factor": 3.0}
+    ]},
+    {"name": "степень_к_науке", "when": "in(education_level, 'кандидат медицинских наук', 'доктор медицинских наук')", "then": [
+      {"kind": "weight", "param": "academic_activity", "value": "true", "factor": 4.0}
+    ]},
+    {"name": "наука_даёт_публикации", "when": "academic_activity", "then": [
+      {"kind": "range", "param": "publications", "min": 2.0},
+      {"kind": "weight", "param": "research_area", "value": "нет", "factor": 0.0},
+      {"kind": "weight", "param": "conferences", "value": "true", "factor": 4.0}
+    ]},
+    {"name": "без_науки_без_публикаций", "when": "not academic_activity", "then": [
+      {"kind": "range", "param": "publications", "max": 0.0},
+      {"kind": "force", "param": "research_area", "value": "нет"}
+    ]},
+    {"name": "опытные_учат", "when": "experience_years >= 15", "then": [
+      {"kind": "weight", "param": "teaches_residents", "value": "true", "factor": 2.5}
+    ]},
+    {"name": "молодые_не_учат", "when": "experience_years < 10", "then": [
+      {"kind": "weight", "param": "teaches_residents", "value": "true", "factor": 0.0}
+    ]},
+    {"name": "психиатр_с_двойным_диагнозом", "when": "psychiatry_experience", "then": [
+      {"kind": "weight", "param": "practice", "value": "двойной диагноз", "factor": 2.5}
+    ]},
+    {"name": "без_психиатрии_без_двойного", "when": "not psychiatry_experience", "then": [
+      {"kind": "weight", "param": "practice", "value": "двойной диагноз", "factor": 0.0}
+    ]},
+    {"name": "психотерапевт_реже_детоксицирует", "when": "specialty == 'психотерапевт'", "then": [
+      {"kind": "weight", "param": "detox_experience", "value": "true", "factor": 0.3}
+    ]},
+    {"name": "реаниматолог_детоксицирует", "when": "specialty == 'нарколог-реаниматолог'", "then": [
+      {"kind": "force", "param": "detox_experience", "value": true}
+    ]},
+    {"name": "психотерапевт_без_фармакотерапии_чаще", "when": "specialty == 'психотерапевт'", "then": [
+      {"kind": "weight", "param": "methods", "value": "фармакотерапия", "factor": 0.3},
+      {"kind": "weight", "param": "methods", "value": "когнитивно-поведенческая терапия", "factor": 3.0}
+    ]},
+    {"name": "многодетность_к_подросткам", "when": "children_count >= 3", "then": [
+      {"kind": "weight", "param": "patient_age_focus", "value": "подростки и молодёжь", "factor": 6.0},
+      {"kind": "weight", "param": "practice", "value": "подростковая зависимость", "factor": 3.0}
+    ]},
+    {"name": "возраст_к_старшим_пациентам", "when": "age >= 55", "then": [
+      {"kind": "weight", "param": "patient_age_focus", "value": "пациенты старшего возраста", "factor": 3.0}
+    ]},
+    {"name": "со_скорой_приходят_со_скорой", "when": "career_1_type == 'скорая помощь'", "then": [
+      {"kind": "weight", "param": "why_addiction", "value": "увидел масштаб проблемы, работая на скорой", "factor": 6.0}
+    ]},
+    {"name": "без_скорой_без_этой_истории", "when": "career_1_type != 'скорая помощь'", "then": [
+      {"kind": "weight", "param": "why_addiction", "value": "увидел масштаб проблемы, работая на скорой", "factor": 0.0}
+    ]},
+    {"name": "распределение_у_старших", "when": "graduation_year > 1994", "then": [
+      {"kind": "weight", "param": "why_addiction", "value": "распределение после вуза", "factor": 0.0}
+    ]},
+    {"name": "зависимость_в_семье_к_истории", "when": "life_turn == 'зависимость в семье'", "then": [
+      {"kind": "weight", "param": "why_addiction", "value": "зависимость у близкого человека", "factor": 6.0}
+    ]},
+    {"name": "семейная_практика_к_семье", "when": "family_counseling", "then": [
+      {"kind": "weight", "param": "memorable_case", "value": "семья, которая не отступилась от человека", "factor": 2.0},
+      {"kind": "weight", "param": "quote_theme", "value": "роль семьи", "factor": 2.0}
+    ]},
+    {"name": "подростки_к_случаю", "when": "patient_age_focus == 'подростки и молодёжь'", "then": [
+      {"kind": "weight", "param": "memorable_case", "value": "подросток, которого привели родители", "factor": 4.0}
+    ]},
+    {"name": "награды_у_опытных", "when": "experience_years < 12", "then": [
+      {"kind": "weight", "param": "awards", "value": "нет", "factor": 4.0}
+    ]}
+  ]
+}

@@ -492,6 +492,54 @@ fn repeated_full_name_is_repaired_not_rejected() {
     assert!(!path.contains("Иванов"), "фамилия в повторе осталась: {path}");
 }
 
+/// Искажённая фамилия исправляется, падежные формы — нет.
+///
+/// Дефект с живого прогона расширенной модели: «Сергейева Наталья Антоновна».
+#[test]
+fn misspelled_surname_is_repaired_but_declension_kept() {
+    let g = generator();
+    let mut row = row_with(49, 18);
+    row.set("full_name", Value::Str("Сергеева Наталья Антоновна".into()));
+
+    let mut v: serde_json::Value = serde_json::from_str(&good_answer(49, 18)).unwrap();
+    v["biography"] = json!(
+        "Сергеева Наталья Антоновна окончила медицинский университет и пришла в наркологию \
+         после ординатуры. Коллеги ценят Сергееву за спокойствие, а пациенты доверяют \
+         Сергеевой самые трудные разговоры о срывах и возвращении к обычной жизни."
+    );
+    v["professional_path"] = json!(
+        "Сергейева Наталья Антоновна начинала в районной больнице, затем работала в \
+         диспансере. Сейчас ведёт приём и много времени уделяет родственникам пациентов, \
+         считая, что без их участия результат оказывается временным."
+    );
+
+    let a = g.accept_text(&row, &v.to_string()).unwrap_or_else(|e| panic!("{e}"));
+    let bio = a.fields["biography"].as_str().unwrap();
+    let path = a.fields["professional_path"].as_str().unwrap();
+
+    assert!(!path.contains("Сергейева"), "опечатка не исправлена: {path}");
+    assert!(bio.contains("Сергееву") && bio.contains("Сергеевой"), "падежи испорчены: {bio}");
+}
+
+/// Отчество, похожее на фамилию, исправитель не трогает.
+#[test]
+fn patronymic_similar_to_surname_is_left_alone() {
+    let g = generator();
+    let mut row = row_with(49, 18);
+    row.set("full_name", Value::Str("Сергеева Наталья Сергеевна".into()));
+
+    let mut v: serde_json::Value = serde_json::from_str(&good_answer(49, 18)).unwrap();
+    v["professional_path"] = json!(
+        "Наталья Сергеевна начинала в районной больнице, затем работала в диспансере. \
+         Сейчас ведёт приём и много времени уделяет родственникам пациентов, считая, \
+         что без их участия результат оказывается временным."
+    );
+
+    let a = g.accept_text(&row, &v.to_string()).unwrap_or_else(|e| panic!("{e}"));
+    let path = a.fields["professional_path"].as_str().unwrap();
+    assert!(path.starts_with("Наталья Сергеевна"), "отчество испорчено: {path}");
+}
+
 /// У консультанта срок трезвости — законная длительность. Первая версия
 /// проверки знала только стаж и отбраковывала верные тексты.
 #[test]

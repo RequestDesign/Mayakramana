@@ -1,0 +1,115 @@
+{
+  "name": "human-core-v2",
+  "version": 2,
+  "description": "Черновик на согласование. Расширяет human-core: откуда человек, из какой семьи, чем живёт вне работы. Эти параметры нужны не для анкеты, а чтобы биографии разных людей расходились по существу, а не формулировками.",
+  "extends": ["human-core.json"],
+  "params": [
+    {
+      "key": "birthplace_type",
+      "title": "Где вырос",
+      "group": "происхождение",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "миллионный город", "weight": 18},
+          {"value": "областной центр", "weight": 30},
+          {"value": "районный центр", "weight": 26},
+          {"value": "посёлок", "weight": 14},
+          {"value": "село", "weight": 12}
+        ]
+      }
+    },
+    {
+      "key": "parents_occupation",
+      "title": "Кем были родители",
+      "group": "происхождение",
+      "note": "Один из самых сильных источников различий в биографиях: «из семьи врачей» и «из семьи рабочих» — разные истории прихода в медицину.",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "врачи", "weight": 12},
+          {"value": "учителя", "weight": 16},
+          {"value": "инженеры", "weight": 22},
+          {"value": "рабочие", "weight": 22},
+          {"value": "военные", "weight": 8},
+          {"value": "служащие", "weight": 14},
+          {"value": "предприниматели", "weight": 6}
+        ]
+      }
+    },
+    {
+      "key": "siblings",
+      "title": "Братьев и сестёр",
+      "group": "происхождение",
+      "mention": "background",
+      "directive": "братьев и сестёр (фон, в карточке не упоминать)",
+      "domain": {"kind": "int", "min": 0, "max": 3, "weights": [22, 42, 24, 12]}
+    },
+    {
+      "key": "moved_as_adult",
+      "title": "Переезжал во взрослом возрасте",
+      "group": "происхождение",
+      "domain": {"kind": "bool", "p_true": 0.4}
+    },
+    {
+      "key": "hobbies",
+      "title": "Увлечения",
+      "group": "личность",
+      "note": "Ноль, одно или два. Делают человека живым, но в карточке специалиста уместны одной фразой — не больше.",
+      "domain": {
+        "kind": "multi_enum",
+        "min_pick": 0,
+        "max_pick": 2,
+        "variants": [
+          {"value": "рыбалка", "weight": 10},
+          {"value": "походы", "weight": 10},
+          {"value": "чтение", "weight": 14},
+          {"value": "бег", "weight": 8},
+          {"value": "шахматы", "weight": 6},
+          {"value": "дача и сад", "weight": 12},
+          {"value": "музыка", "weight": 8},
+          {"value": "фотография", "weight": 6},
+          {"value": "плавание", "weight": 6},
+          {"value": "лыжи", "weight": 6},
+          {"value": "столярное дело", "weight": 4},
+          {"value": "кулинария", "weight": 6}
+        ]
+      }
+    },
+    {
+      "key": "life_turn",
+      "title": "Что повлияло на выбор профессии",
+      "group": "личность",
+      "mention": "background",
+      "directive": "что повлияло на выбор профессии (опирайся на это, но не пересказывай дословно и без подробностей)",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "болезнь близкого человека", "weight": 16},
+          {"value": "зависимость в семье", "weight": 12},
+          {"value": "пример учителя или наставника", "weight": 22},
+          {"value": "случай на практике", "weight": 20},
+          {"value": "семейная традиция", "weight": 12},
+          {"value": "ничего особенного, так сложилось", "weight": 18}
+        ]
+      }
+    }
+  ],
+  "soft": [
+    {
+      "name": "из_деревни_уезжают_учиться",
+      "when": "in(birthplace_type, 'посёлок', 'село', 'районный центр')",
+      "then": [{"kind": "weight", "param": "moved_as_adult", "value": "true", "factor": 3.0}]
+    },
+    {
+      "name": "из_семьи_врачей_традиция",
+      "when": "parents_occupation == 'врачи'",
+      "then": [{"kind": "weight", "param": "life_turn", "value": "семейная традиция", "factor": 5.0}]
+    },
+    {
+      "name": "традиция_только_у_врачей",
+      "when": "parents_occupation != 'врачи'",
+      "then": [{"kind": "weight", "param": "life_turn", "value": "семейная традиция", "factor": 0.1}]
+    }
+  ]
+}

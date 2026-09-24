@@ -117,6 +117,8 @@ fn load_generator(kind: &str) -> Result<Arc<dyn Generator>, Box<dyn std::error::
 
     let mut g = match kind {
         "doctor" => PersonGenerator::doctor(model),
+        // Черновик расширенной модели врача, на согласовании.
+        "doctor-v2" => PersonGenerator::doctor(model),
         "consultant" => PersonGenerator::consultant(model),
         "psychologist" => PersonGenerator::psychologist(model),
         "director" => PersonGenerator::director(model),

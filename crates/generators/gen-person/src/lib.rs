@@ -340,6 +340,7 @@ impl Generator for PersonGenerator {
         // перегенерация: на живом прогоне модель повторяла имя пять раз подряд
         // для одного и того же человека, и каждая попытка стоила полного вызова.
         if let Some(name) = row.get("full_name").and_then(|v| v.as_str()) {
+            repair_misspelled_surname(&mut obj, name);
             repair_repeated_name(&mut obj, name);
         }
 
@@ -520,6 +521,90 @@ fn latin_word(text: &str) -> Option<String> {
     text.split(|c: char| !c.is_alphanumeric())
         .find(|w| w.chars().count() >= 3 && w.chars().all(|c| c.is_ascii_alphabetic()))
         .map(str::to_string)
+}
+
+/// Законные падежные формы русской фамилии на -ов/-ев/-ин и их женских пар.
+fn surname_forms(nominative: &str) -> Vec<String> {
+    let n = nominative.to_string();
+    let mut forms = vec![n.clone()];
+    if let Some(stem) = n.strip_suffix('а') {
+        // Женская: Сергеева → Сергеевой, Сергееву, Сергеевою
+        for end in ["ой", "у", "ою"] {
+            forms.push(format!("{stem}{end}"));
+        }
+    } else {
+        // Мужская: Сергеев → Сергеева, Сергееву, Сергеевым, Сергееве
+        for end in ["а", "у", "ым", "е", "ом"] {
+            forms.push(format!("{n}{end}"));
+        }
+    }
+    forms
+}
+
+fn levenshtein(a: &str, b: &str) -> usize {
+    let a: Vec<char> = a.chars().collect();
+    let b: Vec<char> = b.chars().collect();
+    let mut prev: Vec<usize> = (0..=b.len()).collect();
+    for i in 1..=a.len() {
+        let mut cur = vec![i; b.len() + 1];
+        for j in 1..=b.len() {
+            let cost = (a[i - 1] != b[j - 1]) as usize;
+            cur[j] = (prev[j] + 1).min(cur[j - 1] + 1).min(prev[j - 1] + cost);
+        }
+        prev = cur;
+    }
+    prev[b.len()]
+}
+
+/// Исправить искажённую фамилию.
+///
+/// На живом прогоне модель написала «Сергейева» вместо «Сергеева». Отличить
+/// опечатку от падежа можно: падежные формы известны заранее («Сергеевой»,
+/// «Сергееву»), а всё, что похоже на фамилию, но не является ни одной из них,
+/// — искажение. Оно заменяется правильной формой.
+fn repair_misspelled_surname(obj: &mut serde_json::Map<String, serde_json::Value>, full: &str) {
+    let Some(surname) = full.split_whitespace().next() else { return };
+    if surname.chars().count() < 4 {
+        return;
+    }
+    let forms = surname_forms(surname);
+    let head: String = surname.chars().take(3).collect();
+
+    // Имя и отчество того же человека похожи на фамилию («Сергеева Наталья
+    // Сергеевна»: отчество отличается на одну букву) и исправляться не должны.
+    let own: Vec<String> = full
+        .split_whitespace()
+        .skip(1)
+        .map(|w| w.chars().take(5).collect())
+        .collect();
+    let is_patronymic_like = |w: &str| {
+        ["вич", "вна", "ична", "ичем", "ича", "вной", "вну", "вне", "ичу"]
+            .iter()
+            .any(|e| w.ends_with(e))
+    };
+
+    for field in ["biography", "professional_path", "quote"] {
+        let Some(serde_json::Value::String(text)) = obj.get_mut(field) else { continue };
+
+        let fixed: Vec<String> = text
+            .split(' ')
+            .map(|token| {
+                let word: String = token.chars().filter(|c| c.is_alphabetic() || *c == '-').collect();
+                let suspicious = word.chars().count() >= 4
+                    && word.starts_with(&head)
+                    && !forms.iter().any(|f| f == &word)
+                    && !is_patronymic_like(&word)
+                    && !own.iter().any(|o| word.starts_with(o.as_str()))
+                    && forms.iter().any(|f| levenshtein(f, &word) <= 2);
+                if suspicious {
+                    token.replacen(&word, surname, 1)
+                } else {
+                    token.to_string()
+                }
+            })
+            .collect();
+        *text = fixed.join(" ");
+    }
 }
 
 /// Оставить полное ФИО только при первом упоминании, дальше — имя и отчество.

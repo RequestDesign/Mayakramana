@@ -107,6 +107,15 @@ pub enum Domain {
         #[serde(default = "one_usize")]
         max_pick: usize,
     },
+    /// Значение вычисляется из уже сэмплированных параметров.
+    ///
+    /// Нужно, когда параметр по смыслу не независим. Стаж врача — это сумма
+    /// этапов карьеры, а не случайное число рядом с ними: если сэмплировать их
+    /// по отдельности, «стаж 18 лет» соседствует с этапами на 6 и 4 года, и
+    /// правило равенства почти никогда не выполняется.
+    Computed {
+        expr: crate::expr::Expr,
+    },
     /// Значение не сэмплируется — его заполнит модель или другой шаг пайплайна.
     Derived,
 }
@@ -261,7 +270,7 @@ impl ParamDef {
                 .map(|v| Value::Str(v.value.clone()))
                 .unwrap_or(Value::Null),
             Domain::MultiEnum { .. } => Value::List(Vec::new()),
-            Domain::Derived => Value::Null,
+            Domain::Computed { .. } | Domain::Derived => Value::Null,
         }
     }
 }

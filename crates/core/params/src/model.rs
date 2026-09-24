@@ -194,6 +194,12 @@ impl ParamModel {
             return vec![format!("неизвестный параметр «{target}»")];
         };
 
+        if matches!(def.domain, Domain::Computed { .. }) {
+            return vec![format!(
+                "«{target}» вычисляемый — сдвигать его нельзя, сдвигайте то, из чего он считается"
+            )];
+        }
+
         match bias {
             Bias::Weight { value, .. } => match &def.domain {
                 Domain::Enum { variants } | Domain::MultiEnum { variants, .. } => {
@@ -255,6 +261,29 @@ impl ParamModel {
                 out.push(format!("ключ «{}» объявлен дважды", p.key));
             }
             out.extend(p.domain.issues(&p.key));
+        }
+
+        // Вычисляемые параметры: всё, из чего они считаются, должно быть
+        // объявлено раньше. Иначе значение молча посчитается от пустоты.
+        for (idx, p) in self.params.iter().enumerate() {
+            if let crate::param::Domain::Computed { expr } = &p.domain {
+                let mut refs = Vec::new();
+                expr.referenced_params(&mut refs);
+                for name in refs {
+                    match self.index_of(&name) {
+                        None => out.push(format!(
+                            "«{}» вычисляется из неизвестного параметра «{name}»",
+                            p.key
+                        )),
+                        Some(i) if i >= idx => out.push(format!(
+                            "«{}» вычисляется из «{name}», объявленного позже — \
+                             переставьте параметры",
+                            p.key
+                        )),
+                        _ => {}
+                    }
+                }
+            }
         }
 
         // Жёсткие правила: ссылки только на объявленные параметры.

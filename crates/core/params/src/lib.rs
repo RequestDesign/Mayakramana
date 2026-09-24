@@ -300,6 +300,52 @@ mod tests {
         }
     }
 
+    /// Вычисляемый параметр — сумма этапов, а не случайное число рядом с ними.
+    #[test]
+    fn computed_param_is_derived_from_earlier_ones() {
+        let json = r#"{"name":"x","params":[
+            {"key":"a","title":"A","identity":true,"domain":{"kind":"int","min":1,"max":10}},
+            {"key":"b_on","title":"B есть","domain":{"kind":"bool","p_true":0.5}},
+            {"key":"b","title":"B","domain":{"kind":"int","min":1,"max":10}},
+            {"key":"total","title":"Итого","domain":{"kind":"computed","expr":"a + b * b_on"}},
+            {"key":"count","title":"Сколько","domain":{"kind":"computed","expr":"1 + b_on"}}
+        ]}"#;
+        let m = ParamModel::from_json_str(json).unwrap();
+        // Подпись уникальности здесь — один параметр на десять значений,
+        // поэтому больше восьми разных строк просить нельзя.
+        let pop = Sampler::new(&m, 3).sample_population(&PopulationPlan::uniform(8)).unwrap();
+
+        for s in pop {
+            let r = &s.row;
+            let a = r.get("a").unwrap().as_i64().unwrap();
+            let b = r.get("b").unwrap().as_i64().unwrap();
+            let on = r.get("b_on").unwrap().as_bool().unwrap();
+            let expected = a + if on { b } else { 0 };
+            assert_eq!(r.get("total").unwrap().as_i64(), Some(expected));
+            assert_eq!(r.get("count").unwrap().as_i64(), Some(1 + on as i64));
+        }
+    }
+
+    #[test]
+    fn computed_param_must_come_after_its_inputs() {
+        let json = r#"{"name":"x","params":[
+            {"key":"total","title":"Итого","identity":true,"domain":{"kind":"computed","expr":"a + 1"}},
+            {"key":"a","title":"A","domain":{"kind":"int","min":1,"max":10}}
+        ]}"#;
+        let err = ParamModel::from_json_str(json).unwrap_err().to_string();
+        assert!(err.contains("объявленного позже"), "{err}");
+    }
+
+    #[test]
+    fn computed_param_cannot_be_biased() {
+        let json = r#"{"name":"x","params":[
+            {"key":"a","title":"A","identity":true,"domain":{"kind":"int","min":1,"max":10}},
+            {"key":"t","title":"T","domain":{"kind":"computed","expr":"a * 2"}}],
+            "soft":[{"name":"r","when":"a > 5","then":[{"kind":"range","param":"t","min":3.0}]}]}"#;
+        let err = ParamModel::from_json_str(json).unwrap_err().to_string();
+        assert!(err.contains("вычисляемый"), "{err}");
+    }
+
     #[test]
     fn model_survives_json_roundtrip() {
         let m = doctor_model();

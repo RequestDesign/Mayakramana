@@ -253,6 +253,38 @@ fn every_role_dictionary_is_valid_and_satisfiable() {
     assert!(roles >= 6, "ожидалось не меньше шести словарей, найдено {roles}");
 }
 
+/// Черновик врача v2: стаж — сумма этапов карьеры, год выпуска — от возраста,
+/// дыр в карьере больше пяти лет нет.
+#[test]
+fn doctor_v2_career_adds_up() {
+    let m = ParamModel::load(dict("role-doctor-v2.json")).unwrap_or_else(|e| panic!("{e}"));
+    let pop = Sampler::new(&m, 2027).sample_population(&PopulationPlan::uniform(400)).unwrap();
+
+    let i = |r: &synthforge_params::ParamRow, k: &str| r.get(k).and_then(|v| v.as_i64()).unwrap_or(-1);
+
+    for s in &pop {
+        let r = &s.row;
+        let stages = i(r, "career_1_years") + i(r, "career_2_years") + i(r, "career_3_years")
+            + i(r, "current_years");
+        assert_eq!(i(r, "experience_years"), stages, "стаж не равен сумме этапов");
+
+        assert_eq!(
+            i(r, "graduation_year"),
+            2026 - i(r, "age") + i(r, "graduation_age"),
+            "год выпуска не сходится с возрастом"
+        );
+
+        let since_grad = i(r, "age") - i(r, "graduation_age") - 2;
+        let gap = since_grad - i(r, "experience_years");
+        assert!((0..=5).contains(&gap), "дыра в карьере {gap} лет");
+
+        let places = 2
+            + (r.get("career_2_type").unwrap().as_str() != Some("нет")) as i64
+            + (r.get("career_3_type").unwrap().as_str() != Some("нет")) as i64;
+        assert_eq!(i(r, "workplaces_count"), places);
+    }
+}
+
 #[test]
 fn prompt_blocks_do_not_leak_across_purposes() {
     let m = doctor();

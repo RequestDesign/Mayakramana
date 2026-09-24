@@ -1,0 +1,115 @@
+{
+  "name": "human-visual-v2",
+  "version": 2,
+  "description": "Черновик на согласование. Расширяет human-visual и исправляет выражение лица: на живых прогонах три портрета из трёх вышли строгими, почти угрюмыми — ровно то, о чём предупреждал Андрей. Веса сдвинуты к доброжелательному, добавлены тёплые варианты.",
+  "extends": ["human-visual.json"],
+  "params": [
+    {
+      "key": "expression",
+      "title": "Выражение лица",
+      "group": "реалистичность",
+      "usage": "visual",
+      "note": "Переопределяет вариант из human-visual. Широкой дежурной улыбки по-прежнему нет — она делает сток. Но и строгость больше не преобладает.",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "лёгкая улыбка одними глазами", "weight": 22},
+          {"value": "приветливое, открытое", "weight": 18},
+          {"value": "спокойное, нейтральное", "weight": 20},
+          {"value": "сдержанная полуулыбка", "weight": 18},
+          {"value": "внимательный, чуть усталый взгляд", "weight": 12},
+          {"value": "сосредоточенное", "weight": 7},
+          {"value": "доброжелательное, но без улыбки", "weight": 3}
+        ]
+      }
+    },
+    {
+      "key": "eye_color",
+      "title": "Цвет глаз",
+      "group": "внешность",
+      "usage": "visual",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "карие", "weight": 38},
+          {"value": "серые", "weight": 22},
+          {"value": "голубые", "weight": 20},
+          {"value": "зелёные", "weight": 10},
+          {"value": "серо-зелёные", "weight": 10}
+        ]
+      }
+    },
+    {
+      "key": "eyebrows",
+      "title": "Брови",
+      "group": "внешность",
+      "usage": "visual",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "густые", "weight": 30},
+          {"value": "обычные", "weight": 50},
+          {"value": "редкие, светлые", "weight": 20}
+        ]
+      }
+    },
+    {
+      "key": "posture",
+      "title": "Посадка плеч",
+      "group": "реалистичность",
+      "usage": "visual",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "прямая", "weight": 50},
+          {"value": "чуть сутулится", "weight": 30},
+          {"value": "плечи слегка опущены", "weight": 20}
+        ]
+      }
+    },
+    {
+      "key": "accessory",
+      "title": "Деталь в кадре",
+      "group": "реалистичность",
+      "usage": "visual",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "ничего", "weight": 55},
+          {"value": "бейдж на груди", "weight": 18},
+          {"value": "ручка в нагрудном кармане", "weight": 15},
+          {"value": "часы на руке", "weight": 12}
+        ]
+      }
+    },
+    {
+      "key": "light",
+      "title": "Свет",
+      "group": "реалистичность",
+      "usage": "visual",
+      "domain": {
+        "kind": "enum",
+        "variants": [
+          {"value": "тёплый дневной", "weight": 44},
+          {"value": "мягкий пасмурный", "weight": 34},
+          {"value": "холодный свет ламп", "weight": 22}
+        ]
+      }
+    }
+  ],
+  "soft": [
+    {
+      "name": "южное_происхождение_тёмные_глаза",
+      "when": "in(ethnicity, 'армянское', 'грузинское', 'казахское', 'татарское', 'башкирское')",
+      "then": [
+        {"kind": "weight", "param": "eye_color", "value": "карие", "factor": 4.0},
+        {"kind": "weight", "param": "eye_color", "value": "голубые", "factor": 0.3}
+      ]
+    },
+    {
+      "name": "с_возрастом_сутулятся",
+      "when": "age >= 55",
+      "then": [{"kind": "weight", "param": "posture", "value": "чуть сутулится", "factor": 2.0}]
+    }
+  ]
+}

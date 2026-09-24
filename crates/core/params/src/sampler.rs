@@ -193,6 +193,15 @@ impl<'a> Sampler<'a> {
                 continue;
             }
 
+            // Вычисляемый параметр не сэмплируется, а считается по уже
+            // собранной части строки. Порядок объявления это гарантирует:
+            // загрузка словаря проверяет, что всё нужное объявлено раньше.
+            if let Domain::Computed { expr } = &p.domain {
+                let v = expr.eval(&row).unwrap_or(Value::Null);
+                row.set(p.key.clone(), v);
+                continue;
+            }
+
             let biases = collect_biases(model, &row, &p.key, extra);
 
             if let Some(Bias::Force { value, .. }) =
@@ -284,7 +293,7 @@ impl<'a> Sampler<'a> {
                 Value::List(picked)
             }
 
-            Domain::Derived => Value::Null,
+            Domain::Computed { .. } | Domain::Derived => Value::Null,
         }
     }
 
