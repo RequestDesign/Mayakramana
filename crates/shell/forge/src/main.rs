@@ -115,10 +115,10 @@ fn load_generator(kind: &str) -> Result<Arc<dyn Generator>, Box<dyn std::error::
 
     let model = ParamModel::load(format!("dictionaries/role-{kind}.json"))?;
 
-    let mut g = match kind {
+    // «-v2» — черновики расширенных моделей на согласовании: словарь другой,
+    // а приёмка текста та же, что у роли.
+    let mut g = match kind.trim_end_matches("-v2") {
         "doctor" => PersonGenerator::doctor(model),
-        // Черновик расширенной модели врача, на согласовании.
-        "doctor-v2" => PersonGenerator::doctor(model),
         "consultant" => PersonGenerator::consultant(model),
         "psychologist" => PersonGenerator::psychologist(model),
         "director" => PersonGenerator::director(model),

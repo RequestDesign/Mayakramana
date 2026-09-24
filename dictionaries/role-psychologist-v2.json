@@ -1,0 +1,330 @@
+{
+  "name": "role-psychologist-v2",
+  "version": 2,
+  "description": "Черновик на согласование. Психолог с карьерой по этапам: где начинал, где работал с зависимостями до нынешнего центра, кем был до переподготовки. Стаж и стаж в работе с зависимостями вычисляются из этапов, год выпуска — из возраста; ничто из этого не может противоречить друг другу.",
+  "extends": ["human-core-v2.json", "human-visual-v2.json"],
+  "params": [
+    {
+      "key": "education",
+      "title": "Образование",
+      "group": "образование",
+      "identity": true,
+      "domain": {"kind": "enum", "variants": [
+        {"value": "клиническая психология, специалитет", "weight": 38},
+        {"value": "психология, магистратура", "weight": 30},
+        {"value": "переподготовка на психолога после другой профессии", "weight": 18},
+        {"value": "кандидат психологических наук", "weight": 14}
+      ]}
+    },
+    {
+      "key": "prior_profession",
+      "title": "Профессия до психологии",
+      "group": "образование",
+      "identity": true,
+      "note": "Только у прошедших переподготовку: учитель, ставший психологом, пишет о работе иначе, чем выпускник клинической психологии.",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "нет", "weight": 70},
+        {"value": "педагог", "weight": 8},
+        {"value": "социальный работник", "weight": 5},
+        {"value": "медсестра или фельдшер", "weight": 4},
+        {"value": "менеджер", "weight": 5},
+        {"value": "инженер", "weight": 4},
+        {"value": "журналист", "weight": 4}
+      ]}
+    },
+    {
+      "key": "alma_mater",
+      "title": "Где учился",
+      "group": "образование",
+      "note": "Описательно, без названий конкретных вузов.",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "столичный университет", "weight": 26},
+        {"value": "университет в Санкт-Петербурге", "weight": 14},
+        {"value": "университет в Поволжье", "weight": 16},
+        {"value": "университет на Урале", "weight": 14},
+        {"value": "университет в Сибири", "weight": 14},
+        {"value": "университет на юге России", "weight": 16}
+      ]}
+    },
+    {
+      "key": "graduation_age",
+      "title": "Возраст окончания вуза или переподготовки",
+      "usage": "store_only",
+      "domain": {"kind": "int", "min": 22, "max": 45,
+        "weights": [30, 26, 16, 9, 6, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2.5, 2.5, 2, 2, 1.5, 1.5, 1, 1]}
+    },
+    {
+      "key": "graduation_year",
+      "title": "Год окончания",
+      "group": "образование",
+      "note": "Вычисляется из возраста.",
+      "domain": {"kind": "computed", "expr": "2026 - age + graduation_age"}
+    },
+    {
+      "key": "first_place",
+      "title": "Где начинал",
+      "group": "карьера",
+      "identity": true,
+      "domain": {"kind": "enum", "variants": [
+        {"value": "школа или колледж", "weight": 16},
+        {"value": "центр психологической помощи", "weight": 20},
+        {"value": "психиатрическая больница", "weight": 14},
+        {"value": "наркологический диспансер", "weight": 16},
+        {"value": "социальная служба", "weight": 10},
+        {"value": "частная практика", "weight": 8},
+        {"value": "реабилитационный центр", "weight": 16}
+      ]}
+    },
+    {
+      "key": "first_years",
+      "title": "Лет на первом месте",
+      "group": "карьера",
+      "domain": {"kind": "int", "min": 1, "max": 12}
+    },
+    {
+      "key": "second_place",
+      "title": "Второе место работы",
+      "group": "карьера",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "нет", "weight": 36},
+        {"value": "наркологический диспансер", "weight": 14},
+        {"value": "частная наркологическая клиника", "weight": 14},
+        {"value": "другой реабилитационный центр", "weight": 16},
+        {"value": "центр психологической помощи", "weight": 10},
+        {"value": "частная практика", "weight": 10}
+      ]}
+    },
+    {
+      "key": "second_years",
+      "title": "Лет на втором месте",
+      "group": "карьера",
+      "domain": {"kind": "int", "min": 0, "max": 12}
+    },
+    {
+      "key": "current_years",
+      "title": "Лет в нынешнем центре",
+      "group": "карьера",
+      "domain": {"kind": "int", "min": 1, "max": 15}
+    },
+    {
+      "key": "experience_years",
+      "title": "Стаж",
+      "group": "опыт",
+      "identity": true,
+      "note": "Сумма этапов.",
+      "domain": {"kind": "computed", "expr": "first_years + second_years + current_years"}
+    },
+    {
+      "key": "addiction_years",
+      "title": "Лет в работе с зависимостями",
+      "group": "опыт",
+      "note": "Этапы, связанные с зависимостями, плюс нынешний центр.",
+      "domain": {"kind": "computed", "expr": "current_years + first_years * in(first_place, 'наркологический диспансер', 'реабилитационный центр') + second_years * in(second_place, 'наркологический диспансер', 'частная наркологическая клиника', 'другой реабилитационный центр')"}
+    },
+    {
+      "key": "why_addiction",
+      "title": "Почему пришёл в работу с зависимостями",
+      "group": "путь",
+      "identity": true,
+      "domain": {"kind": "enum", "variants": [
+        {"value": "практика в наркологии во время учёбы", "weight": 20},
+        {"value": "зависимость в семье", "weight": 12},
+        {"value": "интерес к самым трудным случаям", "weight": 18},
+        {"value": "позвали знакомые коллеги", "weight": 18},
+        {"value": "увидел запрос в общей практике", "weight": 20},
+        {"value": "сразу после учёбы попал в центр", "weight": 12}
+      ]}
+    },
+    {
+      "key": "methods",
+      "title": "Методы работы",
+      "group": "практика",
+      "identity": true,
+      "domain": {"kind": "multi_enum", "min_pick": 1, "max_pick": 3, "variants": [
+        {"value": "когнитивно-поведенческая терапия", "weight": 30},
+        {"value": "мотивационное интервьюирование", "weight": 22},
+        {"value": "диалектическая поведенческая терапия", "weight": 10},
+        {"value": "семейная системная терапия", "weight": 14},
+        {"value": "гештальт-терапия", "weight": 10},
+        {"value": "работа по программе двенадцати шагов", "weight": 14}
+      ]}
+    },
+    {
+      "key": "qualification_topics",
+      "title": "Дополнительное обучение",
+      "group": "образование",
+      "domain": {"kind": "multi_enum", "min_pick": 0, "max_pick": 3, "variants": [
+        {"value": "аддиктология", "weight": 24},
+        {"value": "работа с травмой", "weight": 14},
+        {"value": "созависимость", "weight": 14},
+        {"value": "профилактика срыва", "weight": 16},
+        {"value": "кризисное консультирование", "weight": 12},
+        {"value": "подростковая психология", "weight": 10}
+      ]}
+    },
+    {"key": "group_therapy", "title": "Ведёт групповую терапию", "group": "практика", "domain": {"kind": "bool", "p_true": 0.7}},
+    {"key": "family_therapy", "title": "Работает с семьями", "group": "практика", "domain": {"kind": "bool", "p_true": 0.5}},
+    {"key": "diagnostics", "title": "Проводит психодиагностику", "group": "практика", "domain": {"kind": "bool", "p_true": 0.6}},
+    {"key": "supervisor", "title": "Супервизор", "group": "практика", "domain": {"kind": "bool", "p_true": 0.18}},
+    {
+      "key": "personal_therapy",
+      "title": "Проходил личную терапию",
+      "group": "практика",
+      "mention": "background",
+      "directive": "проходил личную терапию (фон, в карточке не упоминать)",
+      "domain": {"kind": "bool", "p_true": 0.7}
+    },
+    {"key": "online_consultations", "title": "Консультирует онлайн", "group": "практика", "domain": {"kind": "bool", "p_true": 0.45}},
+    {
+      "key": "client_focus",
+      "title": "С кем работает",
+      "group": "практика",
+      "mention": "background",
+      "directive": "о ком писать (показать через описание работы, не называть категорией)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "взрослые", "weight": 56},
+        {"value": "подростки и молодёжь", "weight": 18},
+        {"value": "созависимые родственники", "weight": 16},
+        {"value": "смешанно", "weight": 10}
+      ]}
+    },
+    {
+      "key": "memorable_case",
+      "title": "О каком случае вспоминает",
+      "group": "путь",
+      "mention": "background",
+      "directive": "из какого опыта взять пример (без имён, подробностей и цифр, одной фразой)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "клиент, который долго молчал на группе", "weight": 18},
+        {"value": "подросток, впервые заговоривший о себе", "weight": 14},
+        {"value": "мать, переставшая спасать сына", "weight": 16},
+        {"value": "клиент, вернувшийся после срыва", "weight": 20},
+        {"value": "пара, заново договорившаяся жить вместе", "weight": 12},
+        {"value": "человек, нашедший причину, а не повод", "weight": 20}
+      ]}
+    },
+    {
+      "key": "quote_theme",
+      "title": "О чём цитата",
+      "group": "путь",
+      "mention": "background",
+      "directive": "тема цитаты (о чём сказать, не называя тему)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "за зависимостью стоит боль", "weight": 18},
+        {"value": "изменения требуют времени", "weight": 18},
+        {"value": "семья тоже болеет", "weight": 16},
+        {"value": "чувства можно выдерживать", "weight": 16},
+        {"value": "ответственность без вины", "weight": 16},
+        {"value": "доверие в терапии", "weight": 16}
+      ]}
+    },
+    {
+      "key": "attitude",
+      "title": "Как говорит о клиентах",
+      "group": "путь",
+      "mention": "background",
+      "directive": "интонация, с которой говорит о клиентах (показать тоном, не описывать)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "бережно и внимательно", "weight": 30},
+        {"value": "аналитично", "weight": 24},
+        {"value": "тепло и просто", "weight": 28},
+        {"value": "с мягким юмором", "weight": 18}
+      ]}
+    },
+
+    {"key": "full_name", "title": "ФИО", "group": "базовые", "identity": true, "mention": "required", "domain": {"kind": "derived"}},
+    {"key": "biography", "title": "Биография", "group": "текст", "domain": {"kind": "derived"}},
+    {"key": "professional_path", "title": "Профессиональный путь", "group": "текст", "domain": {"kind": "derived"}},
+    {"key": "quote", "title": "Цитата", "group": "текст", "domain": {"kind": "derived"}}
+  ],
+  "hard": [
+    {"name": "переподготовка_значит_прежняя_профессия", "expr": "(education == 'переподготовка на психолога после другой профессии') == (prior_profession != 'нет')", "message": "прежняя профессия не сходится с переподготовкой"},
+    {"name": "переподготовка_не_в_юности", "expr": "education != 'переподготовка на психолога после другой профессии' or graduation_age >= 28", "message": "переподготовка после другой профессии раньше 28 лет"},
+    {"name": "вуз_вовремя", "expr": "education == 'переподготовка на психолога после другой профессии' or graduation_age <= 30", "message": "профильный вуз окончен позже 30 лет"},
+    {"name": "стаж_после_выпуска", "expr": "experience_years <= age - graduation_age", "message": "стаж не помещается между выпуском и нынешним возрастом"},
+    {"name": "перерыв_не_больше_шести_лет", "expr": "experience_years >= age - graduation_age - 6", "message": "необъяснимая дыра в карьере"},
+    {"name": "кандидатская_не_рано", "expr": "education != 'кандидат психологических наук' or age >= 30", "message": "кандидатская степень раньше 30 лет"},
+    {"name": "супервизия_требует_опыта", "expr": "not supervisor or experience_years >= 7", "message": "супервизор со стажем меньше семи лет"},
+    {"name": "второе_место_с_годами", "expr": "(second_place == 'нет') == (second_years == 0)", "message": "у второго места работы не сходятся наличие и годы"},
+    {"name": "сразу_в_центр_значит_начинал_в_центре", "expr": "why_addiction != 'сразу после учёбы попал в центр' or first_place == 'реабилитационный центр'", "message": "попал в центр сразу после учёбы, но начинал не в центре"},
+    {"name": "запрос_в_общей_практике_требует_общей_практики", "expr": "why_addiction != 'увидел запрос в общей практике' or in(first_place, 'школа или колледж', 'центр психологической помощи', 'социальная служба', 'частная практика')", "message": "увидел запрос в общей практике, не работая в ней"}
+  ],
+  "soft": [
+    {"name": "переподготовка_с_прежней_профессией", "when": "education == 'переподготовка на психолога после другой профессии'", "then": [
+      {"kind": "weight", "param": "prior_profession", "value": "нет", "factor": 0.0},
+      {"kind": "range", "param": "graduation_age", "min": 28.0}
+    ]},
+    {"name": "без_переподготовки_без_прежней_профессии", "when": "education != 'переподготовка на психолога после другой профессии'", "then": [
+      {"kind": "force", "param": "prior_profession", "value": "нет"},
+      {"kind": "range", "param": "graduation_age", "max": 27.0}
+    ]},
+    {"name": "переподготовка_не_у_молодых", "when": "age < 33", "then": [
+      {"kind": "weight", "param": "education", "value": "переподготовка на психолога после другой профессии", "factor": 0.0}
+    ]},
+    {"name": "степень_не_у_молодых", "when": "age < 30", "then": [
+      {"kind": "weight", "param": "education", "value": "кандидат психологических наук", "factor": 0.0}
+    ]},
+    {"name": "выпуск_не_позже_возраста", "when": "age <= 45", "then": [
+      {"kind": "range", "param": "graduation_age", "max": 38.0}
+    ]},
+    {"name": "молодые_переподготовленные_выпустились_рано", "when": "age <= 36", "then": [
+      {"kind": "range", "param": "graduation_age", "max": 30.0}
+    ]},
+    {"name": "педагоги_начинали_в_школе", "when": "prior_profession == 'педагог'", "then": [
+      {"kind": "weight", "param": "first_place", "value": "школа или колледж", "factor": 4.0}
+    ]},
+    {"name": "соцработники_в_социальной_службе", "when": "prior_profession == 'социальный работник'", "then": [
+      {"kind": "weight", "param": "first_place", "value": "социальная служба", "factor": 4.0}
+    ]},
+    {"name": "клинические_в_больнице", "when": "education == 'клиническая психология, специалитет'", "then": [
+      {"kind": "weight", "param": "first_place", "value": "психиатрическая больница", "factor": 2.0},
+      {"kind": "weight", "param": "first_place", "value": "наркологический диспансер", "factor": 1.5}
+    ]},
+    {"name": "молодые_с_короткой_карьерой", "when": "age <= 32", "then": [
+      {"kind": "range", "param": "first_years", "max": 4.0},
+      {"kind": "weight", "param": "second_place", "value": "нет", "factor": 4.0},
+      {"kind": "range", "param": "current_years", "max": 4.0}
+    ]},
+    {"name": "зрелые_с_длинной_карьерой", "when": "age >= 45 and graduation_age <= 27", "then": [
+      {"kind": "range", "param": "first_years", "min": 4.0},
+      {"kind": "weight", "param": "second_place", "value": "нет", "factor": 0.3},
+      {"kind": "range", "param": "current_years", "min": 3.0}
+    ]},
+    {"name": "старшие_с_длинными_этапами", "when": "age >= 55 and graduation_age <= 27", "then": [
+      {"kind": "range", "param": "first_years", "min": 8.0},
+      {"kind": "range", "param": "current_years", "min": 6.0}
+    ]},
+    {"name": "нет_второго_нет_лет", "when": "second_place == 'нет'", "then": [{"kind": "range", "param": "second_years", "max": 0.0}]},
+    {"name": "есть_второе_есть_годы", "when": "second_place != 'нет'", "then": [{"kind": "range", "param": "second_years", "min": 1.0}]},
+    {"name": "начинал_в_центре_попал_сразу", "when": "first_place == 'реабилитационный центр'", "then": [
+      {"kind": "weight", "param": "why_addiction", "value": "сразу после учёбы попал в центр", "factor": 4.0}
+    ]},
+    {"name": "не_в_центре_не_сразу", "when": "first_place != 'реабилитационный центр'", "then": [
+      {"kind": "weight", "param": "why_addiction", "value": "сразу после учёбы попал в центр", "factor": 0.0}
+    ]},
+    {"name": "без_общей_практики_без_запроса", "when": "not in(first_place, 'школа или колледж', 'центр психологической помощи', 'социальная служба', 'частная практика')", "then": [
+      {"kind": "weight", "param": "why_addiction", "value": "увидел запрос в общей практике", "factor": 0.0}
+    ]},
+    {"name": "зависимость_в_семье_к_истории", "when": "life_turn == 'зависимость в семье'", "then": [
+      {"kind": "weight", "param": "why_addiction", "value": "зависимость в семье", "factor": 6.0}
+    ]},
+    {"name": "семейные_методы_к_работе_с_семьёй", "when": "has(methods, 'семейная системная терапия')", "then": [
+      {"kind": "weight", "param": "qualification_topics", "value": "созависимость", "factor": 3.0},
+      {"kind": "weight", "param": "family_therapy", "value": "true", "factor": 8.0},
+      {"kind": "weight", "param": "client_focus", "value": "созависимые родственники", "factor": 3.0}
+    ]},
+    {"name": "опытные_супервизируют", "when": "experience_years >= 15", "then": [{"kind": "weight", "param": "supervisor", "value": "true", "factor": 3.0}]},
+    {"name": "молодые_не_супервизируют", "when": "experience_years < 7", "then": [{"kind": "weight", "param": "supervisor", "value": "true", "factor": 0.0}]},
+    {"name": "многодетность_к_подросткам", "when": "children_count >= 3", "then": [{"kind": "weight", "param": "client_focus", "value": "подростки и молодёжь", "factor": 4.0}]},
+    {"name": "подростки_к_случаю", "when": "client_focus == 'подростки и молодёжь'", "then": [
+      {"kind": "weight", "param": "memorable_case", "value": "подросток, впервые заговоривший о себе", "factor": 4.0}
+    ]},
+    {"name": "без_подростков_без_подросткового_случая", "when": "client_focus == 'взрослые'", "then": [
+      {"kind": "weight", "param": "memorable_case", "value": "подросток, впервые заговоривший о себе", "factor": 0.0}
+    ]},
+    {"name": "семьи_к_случаю", "when": "family_therapy", "then": [
+      {"kind": "weight", "param": "memorable_case", "value": "мать, переставшая спасать сына", "factor": 2.0},
+      {"kind": "weight", "param": "quote_theme", "value": "семья тоже болеет", "factor": 2.0}
+    ]}
+  ]
+}

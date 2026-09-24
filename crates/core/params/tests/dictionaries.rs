@@ -302,3 +302,95 @@ fn prompt_blocks_do_not_leak_across_purposes() {
     // Возраст и пол нужны обоим — они помечены both.
     assert!(text.contains("Возраст") && visual.contains("Возраст"));
 }
+
+fn population(file: &str, seed: u64) -> Vec<synthforge_params::ParamRow> {
+    let m = ParamModel::load(dict(file)).unwrap_or_else(|e| panic!("{file}: {e}"));
+    Sampler::new(&m, seed)
+        .sample_population(&PopulationPlan::uniform(400))
+        .unwrap_or_else(|e| panic!("{file}: {e}"))
+        .into_iter()
+        .map(|s| s.row)
+        .collect()
+}
+
+fn int(r: &synthforge_params::ParamRow, k: &str) -> i64 {
+    r.get(k).and_then(|v| v.as_i64()).unwrap_or_else(|| panic!("нет «{k}»"))
+}
+
+fn text<'a>(r: &'a synthforge_params::ParamRow, k: &str) -> &'a str {
+    r.get(k).and_then(|v| v.as_str()).unwrap_or_else(|| panic!("нет «{k}»"))
+}
+
+/// Консультант v2: стаж — сумма мест работы; у выздоравливающего работа и
+/// волонтёрство помещаются в срок трезвости, а употребление — в жизнь до неё.
+#[test]
+fn consultant_v2_story_adds_up() {
+    let recovering = "выздоравливающий, прошёл программу";
+    let mut seen_recovering = 0;
+    for r in population("role-consultant-v2.json", 31) {
+        assert_eq!(int(&r, "experience_years"), int(&r, "prior_years") + int(&r, "current_years"));
+        assert_eq!(int(&r, "sobriety_age"), int(&r, "age") - int(&r, "clean_years"));
+
+        if text(&r, "recovery_background") == recovering {
+            seen_recovering += 1;
+            assert!(int(&r, "experience_years") + int(&r, "volunteer_years") <= int(&r, "clean_years"));
+            assert!(int(&r, "sobriety_age") - int(&r, "use_years") >= 14);
+            assert_ne!(text(&r, "substance"), "нет");
+        } else {
+            assert_eq!(int(&r, "clean_years"), 0);
+            assert_eq!(text(&r, "substance"), "нет");
+            assert_eq!(int(&r, "use_years"), 0);
+        }
+    }
+    assert!(seen_recovering > 150, "выздоравливающих всего {seen_recovering} из 400");
+}
+
+/// Психолог v2: стаж — сумма этапов, стаж в зависимостях — его часть,
+/// прежняя профессия есть ровно у прошедших переподготовку.
+#[test]
+fn psychologist_v2_career_adds_up() {
+    let retrained = "переподготовка на психолога после другой профессии";
+    for r in population("role-psychologist-v2.json", 32) {
+        let exp = int(&r, "experience_years");
+        assert_eq!(exp, int(&r, "first_years") + int(&r, "second_years") + int(&r, "current_years"));
+        assert!(int(&r, "addiction_years") >= int(&r, "current_years"));
+        assert!(int(&r, "addiction_years") <= exp);
+        assert_eq!(int(&r, "graduation_year"), 2026 - int(&r, "age") + int(&r, "graduation_age"));
+
+        let since = int(&r, "age") - int(&r, "graduation_age");
+        assert!((0..=6).contains(&(since - exp)), "дыра {} лет", since - exp);
+        assert_eq!(text(&r, "education") == retrained, text(&r, "prior_profession") != "нет");
+    }
+}
+
+/// Руководитель v2: жизнь складывается без остатка — начало работы, прежняя
+/// профессия, перерыв и годы в сфере дают ровно возраст; у выздоравливающего
+/// трезвость покрывает все годы в сфере.
+#[test]
+fn director_v2_life_adds_up() {
+    let recovering = "выздоравливающий, основавший центр после своего пути";
+    let mut founders = 0;
+    for r in population("role-director-v2.json", 33) {
+        assert_eq!(
+            int(&r, "start_work_age") + int(&r, "before_field_years") + int(&r, "career_gap_years")
+                + int(&r, "field_years"),
+            int(&r, "age")
+        );
+        assert!(int(&r, "leading_years") <= int(&r, "field_years"));
+        assert!(int(&r, "age") >= 30);
+
+        if text(&r, "background") == recovering {
+            assert!(int(&r, "clean_years") >= int(&r, "field_years"));
+            assert!(int(&r, "clean_years") <= int(&r, "age") - 18);
+        } else {
+            assert_eq!(int(&r, "clean_years"), 0);
+        }
+        if text(&r, "background") == "врач, открывший свой центр" {
+            assert_eq!(text(&r, "education"), "медицинское");
+        }
+        let founder = r.get("founder").and_then(|v| v.as_bool()).unwrap();
+        founders += founder as usize;
+        assert_eq!(founder, int(&r, "centers_opened") >= 1);
+    }
+    assert!((120..=320).contains(&founders), "основателей {founders} из 400");
+}

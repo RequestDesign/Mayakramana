@@ -1,0 +1,408 @@
+{
+  "name": "role-consultant-v2",
+  "version": 2,
+  "description": "Черновик на согласование. Консультант с прожитой историей: сколько длилось употребление, что стало поворотом, кем работал до, сколько лет в трезвости и где работал консультантом. Стаж — сумма мест работы, а не отдельное число; возраст начала трезвости вычисляется — так срок трезвости, стаж и возраст не могут разойтись.",
+  "extends": ["human-core-v2.json", "human-visual-v2.json"],
+  "params": [
+    {
+      "key": "recovery_background",
+      "title": "Личный опыт зависимости",
+      "group": "путь",
+      "identity": true,
+      "note": "Ключевой параметр роли: от него зависит почти всё остальное.",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "выздоравливающий, прошёл программу", "weight": 62},
+        {"value": "созависимый, прошёл программу для родственников", "weight": 18},
+        {"value": "без личного опыта, пришёл через образование", "weight": 20}
+      ]}
+    },
+    {
+      "key": "substance",
+      "title": "С чем был связан опыт",
+      "group": "путь",
+      "mention": "background",
+      "directive": "какой опыт за плечами (говорить сдержанно, без подробностей употребления)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "нет", "weight": 38},
+        {"value": "алкоголь", "weight": 26},
+        {"value": "опиаты", "weight": 14},
+        {"value": "стимуляторы", "weight": 10},
+        {"value": "смешанное употребление", "weight": 8},
+        {"value": "игровая зависимость", "weight": 4}
+      ]}
+    },
+    {
+      "key": "use_years",
+      "title": "Сколько лет длилось употребление",
+      "group": "путь",
+      "mention": "background",
+      "directive": "как долго длилась зависимость (передать ощущение срока, число не называть)",
+      "domain": {"kind": "int", "min": 0, "max": 20,
+        "weights": [30, 1, 3, 5, 7, 8, 8, 8, 7, 6, 5, 4, 3.5, 3, 2.5, 2, 1.5, 1.2, 1, 0.8, 0.6]}
+    },
+    {
+      "key": "treatment_attempts",
+      "title": "Попыток лечения до программы",
+      "group": "путь",
+      "mention": "background",
+      "directive": "сколько раз пробовал остановиться до программы, которая сработала (число не называть)",
+      "domain": {"kind": "int", "min": 0, "max": 5, "weights": [34, 22, 18, 12, 8, 6]}
+    },
+    {
+      "key": "turning_point",
+      "title": "Что стало поворотом",
+      "group": "путь",
+      "mention": "background",
+      "directive": "что заставило остановиться (одной фразой, без драматизации)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "нет", "weight": 38},
+        {"value": "ультиматум семьи", "weight": 16},
+        {"value": "проблемы со здоровьем", "weight": 14},
+        {"value": "потеря работы", "weight": 10},
+        {"value": "проблемы с законом", "weight": 6},
+        {"value": "решение без внешнего повода", "weight": 16}
+      ]}
+    },
+    {
+      "key": "clean_years",
+      "title": "Лет в трезвости",
+      "group": "путь",
+      "identity": true,
+      "note": "Ноль — личного опыта употребления не было.",
+      "domain": {"kind": "int", "min": 0, "max": 30,
+        "weights": [40, 1, 2, 4, 6, 8, 9, 9, 8, 7, 6, 5, 5, 4, 4, 3, 3, 2, 2, 2, 2, 1.5, 1.5, 1, 1, 1, 0.8, 0.8, 0.6, 0.6, 0.5]}
+    },
+    {
+      "key": "sobriety_age",
+      "title": "Возраст, в котором бросил",
+      "group": "путь",
+      "usage": "store_only",
+      "note": "Вычисляется: возраст минус срок трезвости. У тех, кто не употреблял, равен возрасту и не используется.",
+      "domain": {"kind": "computed", "expr": "age - clean_years"}
+    },
+    {
+      "key": "previous_profession",
+      "title": "Кем работал до",
+      "group": "путь",
+      "identity": true,
+      "note": "Прошлая жизнь до консультирования — главный источник различий в биографиях консультантов.",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "рабочая специальность", "weight": 18},
+        {"value": "торговля", "weight": 14},
+        {"value": "водитель", "weight": 10},
+        {"value": "офисная работа", "weight": 14},
+        {"value": "военная служба", "weight": 6},
+        {"value": "спорт", "weight": 6},
+        {"value": "творческая профессия", "weight": 8},
+        {"value": "своё дело", "weight": 10},
+        {"value": "учился, не успел поработать", "weight": 6},
+        {"value": "педагог или социальный работник", "weight": 8}
+      ]}
+    },
+    {
+      "key": "path_to_work",
+      "title": "Как пришёл в профессию",
+      "group": "путь",
+      "identity": true,
+      "domain": {"kind": "enum", "variants": [
+        {"value": "через сообщество, остался помогать", "weight": 38},
+        {"value": "вернулся в центр, где проходил программу", "weight": 24},
+        {"value": "пришёл после обучения на консультанта", "weight": 22},
+        {"value": "начинал волонтёром", "weight": 16}
+      ]}
+    },
+    {
+      "key": "training",
+      "title": "Подготовка",
+      "group": "подготовка",
+      "mention": "background",
+      "directive": "какая подготовка за плечами (опирайся на это, но не пересказывай строкой)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "сертификация консультанта по зависимостям", "weight": 44},
+        {"value": "профильное психологическое образование", "weight": 20},
+        {"value": "обучение внутри центра и наставничество", "weight": 26},
+        {"value": "педагогическое или социальное образование", "weight": 10}
+      ]}
+    },
+    {
+      "key": "volunteer_years",
+      "title": "Лет волонтёрства до работы",
+      "group": "карьера",
+      "domain": {"kind": "int", "min": 0, "max": 5, "weights": [40, 26, 16, 9, 5, 4]}
+    },
+    {
+      "key": "prior_centers",
+      "title": "Где работал консультантом раньше",
+      "group": "карьера",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "нет", "weight": 45},
+        {"value": "один центр", "weight": 35},
+        {"value": "два-три центра", "weight": 20}
+      ]}
+    },
+    {
+      "key": "prior_years",
+      "title": "Лет в прежних центрах",
+      "group": "карьера",
+      "domain": {"kind": "int", "min": 0, "max": 15}
+    },
+    {
+      "key": "current_years",
+      "title": "Лет в нынешнем центре",
+      "group": "карьера",
+      "domain": {"kind": "int", "min": 1, "max": 12,
+        "weights": [14, 14, 13, 12, 10, 9, 8, 6, 5, 4, 3, 2]}
+    },
+    {
+      "key": "experience_years",
+      "title": "Стаж консультантом",
+      "group": "опыт",
+      "identity": true,
+      "note": "Сумма прежних центров и нынешнего. Не сэмплируется отдельно.",
+      "domain": {"kind": "computed", "expr": "prior_years + current_years"}
+    },
+    {
+      "key": "workplaces_count",
+      "title": "Центров за карьеру",
+      "group": "карьера",
+      "mention": "background",
+      "directive": "в скольких центрах работал (число в текст не переносить)",
+      "domain": {"kind": "computed", "expr": "1 + (prior_centers != 'нет') + (prior_centers == 'два-три центра')"}
+    },
+    {
+      "key": "group_work",
+      "title": "Ведёт группы",
+      "group": "опыт",
+      "domain": {"kind": "bool", "p_true": 0.78}
+    },
+    {
+      "key": "group_type",
+      "title": "Какую группу ведёт",
+      "group": "опыт",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "не ведёт", "weight": 20},
+        {"value": "группа по двенадцати шагам", "weight": 26},
+        {"value": "группа профилактики срыва", "weight": 20},
+        {"value": "группа для родственников", "weight": 12},
+        {"value": "утренняя группа планирования дня", "weight": 12},
+        {"value": "группа чувств", "weight": 10}
+      ]}
+    },
+    {
+      "key": "sponsor_experience",
+      "title": "Опыт наставничества",
+      "group": "опыт",
+      "domain": {"kind": "bool", "p_true": 0.6}
+    },
+    {
+      "key": "crisis_work",
+      "title": "Работа с острыми состояниями",
+      "group": "опыт",
+      "mention": "background",
+      "directive": "работает ли с острыми состояниями (если нет — просто не упоминать)",
+      "domain": {"kind": "bool", "p_true": 0.45}
+    },
+    {
+      "key": "family_work",
+      "title": "Работа с родственниками",
+      "group": "опыт",
+      "domain": {"kind": "bool", "p_true": 0.55}
+    },
+    {
+      "key": "focus",
+      "title": "С кем работает",
+      "group": "опыт",
+      "mention": "background",
+      "directive": "о каких подопечных писать (показать через описание работы, не называть категорией)",
+      "domain": {"kind": "multi_enum", "min_pick": 1, "max_pick": 3, "variants": [
+        {"value": "новички в программе", "weight": 30},
+        {"value": "срывающиеся", "weight": 22},
+        {"value": "молодые", "weight": 16},
+        {"value": "возрастные", "weight": 14},
+        {"value": "созависимые родственники", "weight": 18}
+      ]}
+    },
+    {
+      "key": "approach",
+      "title": "Что считает главным",
+      "group": "опыт",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "честность с самим собой", "weight": 24},
+        {"value": "режим и структура дня", "weight": 20},
+        {"value": "принадлежность к группе", "weight": 22},
+        {"value": "работа с отрицанием", "weight": 20},
+        {"value": "возвращение ответственности", "weight": 14}
+      ]}
+    },
+    {
+      "key": "why_stays",
+      "title": "Почему остаётся в профессии",
+      "group": "путь",
+      "identity": true,
+      "domain": {"kind": "enum", "variants": [
+        {"value": "это часть собственного выздоровления", "weight": 24},
+        {"value": "видит, как люди возвращаются к жизни", "weight": 26},
+        {"value": "чувство долга перед теми, кто помог", "weight": 18},
+        {"value": "нравится работа с группой", "weight": 14},
+        {"value": "профессиональный интерес к теме", "weight": 18}
+      ]}
+    },
+    {
+      "key": "memorable_case",
+      "title": "О каком подопечном вспоминает",
+      "group": "путь",
+      "mention": "background",
+      "directive": "из какого опыта взять пример (без имён, подробностей и цифр, одной фразой)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "человек, который пришёл на группу в последний момент", "weight": 18},
+        {"value": "подопечный, сорвавшийся и вернувшийся", "weight": 22},
+        {"value": "молодой парень, приведённый матерью", "weight": 16},
+        {"value": "человек, который сам стал помогать другим", "weight": 20},
+        {"value": "семья, которая заново научилась разговаривать", "weight": 14},
+        {"value": "подопечный, которому не смог помочь", "weight": 10}
+      ]}
+    },
+    {
+      "key": "quote_theme",
+      "title": "О чём цитата",
+      "group": "путь",
+      "mention": "background",
+      "directive": "тема цитаты (о чём сказать, не называя тему)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "один день за раз", "weight": 18},
+        {"value": "срыв не конец пути", "weight": 18},
+        {"value": "никто не выздоравливает в одиночку", "weight": 18},
+        {"value": "честность с собой", "weight": 16},
+        {"value": "ответственность за свою жизнь", "weight": 14},
+        {"value": "надежда", "weight": 16}
+      ]}
+    },
+    {
+      "key": "attitude",
+      "title": "Как говорит о подопечных",
+      "group": "путь",
+      "mention": "background",
+      "directive": "интонация, с которой говорит о подопечных (показать тоном, не описывать)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "на равных, как человек, прошедший тот же путь", "weight": 30},
+        {"value": "прямо и без сюсюканья", "weight": 26},
+        {"value": "с терпением и теплом", "weight": 26},
+        {"value": "с мягким юмором", "weight": 18}
+      ]}
+    },
+
+    {"key": "full_name", "title": "ФИО", "group": "базовые", "identity": true, "mention": "required", "domain": {"kind": "derived"}},
+    {"key": "biography", "title": "Биография", "group": "текст", "domain": {"kind": "derived"}},
+    {"key": "professional_path", "title": "Профессиональный путь", "group": "текст", "domain": {"kind": "derived"}},
+    {"key": "quote", "title": "Цитата", "group": "текст", "domain": {"kind": "derived"}}
+  ],
+  "hard": [
+    {"name": "трезвость_не_дольше_взрослой_жизни", "expr": "clean_years <= age - 18", "message": "срок трезвости превышает возможный при данном возрасте"},
+    {"name": "трезвость_только_у_выздоравливающих", "expr": "recovery_background == 'выздоравливающий, прошёл программу' or clean_years == 0", "message": "срок трезвости у человека без опыта зависимости"},
+    {"name": "у_выздоравливающих_есть_вещество", "expr": "(recovery_background == 'выздоравливающий, прошёл программу') == (substance != 'нет')", "message": "вещество не сходится с личным опытом"},
+    {"name": "у_выздоравливающих_есть_срок_употребления", "expr": "(recovery_background == 'выздоравливающий, прошёл программу') == (use_years >= 2)", "message": "срок употребления не сходится с личным опытом"},
+    {"name": "попытки_лечения_только_у_выздоравливающих", "expr": "recovery_background == 'выздоравливающий, прошёл программу' or treatment_attempts == 0", "message": "попытки лечения у человека без опыта зависимости"},
+    {"name": "поворот_только_у_выздоравливающих", "expr": "(recovery_background == 'выздоравливающий, прошёл программу') == (turning_point != 'нет')", "message": "поворотный момент не сходится с личным опытом"},
+    {"name": "употребление_не_с_детства", "expr": "recovery_background != 'выздоравливающий, прошёл программу' or sobriety_age - use_years >= 14", "message": "употребление началось раньше 14 лет"},
+    {"name": "стаж_и_волонтёрство_внутри_трезвости", "expr": "recovery_background != 'выздоравливающий, прошёл программу' or experience_years + volunteer_years <= clean_years", "message": "работает в профессии дольше, чем находится в трезвости"},
+    {"name": "стаж_не_больше_возможного", "expr": "experience_years + volunteer_years <= age - 20", "message": "стаж превышает возможный при данном возрасте"},
+    {"name": "путь_через_сообщество_требует_личного_опыта", "expr": "recovery_background != 'без личного опыта, пришёл через образование' or not in(path_to_work, 'через сообщество, остался помогать', 'вернулся в центр, где проходил программу')", "message": "прийти через сообщество можно только имея личный опыт"},
+    {"name": "волонтёр_волонтёрствовал", "expr": "path_to_work != 'начинал волонтёром' or volunteer_years >= 1", "message": "пришёл через волонтёрство, но не волонтёрствовал"},
+    {"name": "прежние_центры_с_годами", "expr": "(prior_centers == 'нет') == (prior_years == 0)", "message": "прежние места работы не сходятся с годами"},
+    {"name": "несколько_центров_не_за_год", "expr": "prior_centers != 'два-три центра' or prior_years >= 3", "message": "два-три прежних центра меньше чем за три года"},
+    {"name": "группа_у_ведущих_группы", "expr": "group_work == (group_type != 'не ведёт')", "message": "тип группы не сходится с тем, ведёт ли он группы"},
+    {"name": "группа_родственников_у_работающих_с_семьями", "expr": "group_type != 'группа для родственников' or family_work", "message": "ведёт группу для родственников, не работая с семьями"},
+    {"name": "наставничество_требует_опыта", "expr": "not sponsor_experience or experience_years >= 3", "message": "наставничество при стаже меньше трёх лет"},
+    {"name": "учёба_без_работы_у_молодых", "expr": "previous_profession != 'учился, не успел поработать' or sobriety_age <= 26", "message": "не успел поработать до зависимости, хотя бросил поздно"},
+    {"name": "выздоровление_как_причина_у_выздоравливающих", "expr": "recovery_background == 'выздоравливающий, прошёл программу' or why_stays != 'это часть собственного выздоровления'", "message": "работа как часть выздоровления у человека без зависимости"}
+  ],
+  "soft": [
+    {"name": "без_опыта_без_вещества", "when": "recovery_background != 'выздоравливающий, прошёл программу'", "then": [
+      {"kind": "force", "param": "substance", "value": "нет"},
+      {"kind": "range", "param": "use_years", "max": 0.0},
+      {"kind": "range", "param": "treatment_attempts", "max": 0.0},
+      {"kind": "force", "param": "turning_point", "value": "нет"},
+      {"kind": "range", "param": "clean_years", "max": 0.0}
+    ]},
+    {"name": "у_выздоравливающих_есть_история", "when": "recovery_background == 'выздоравливающий, прошёл программу'", "then": [
+      {"kind": "weight", "param": "substance", "value": "нет", "factor": 0.0},
+      {"kind": "range", "param": "use_years", "min": 2.0},
+      {"kind": "weight", "param": "turning_point", "value": "нет", "factor": 0.0},
+      {"kind": "range", "param": "clean_years", "min": 4.0}
+    ]},
+    {"name": "молодые_употребляли_недолго", "when": "age <= 34", "then": [
+      {"kind": "range", "param": "use_years", "max": 8.0},
+      {"kind": "range", "param": "clean_years", "max": 10.0}
+    ]},
+    {"name": "с_возрастом_дольше_трезвость", "when": "age >= 45 and recovery_background == 'выздоравливающий, прошёл программу'", "then": [
+      {"kind": "range", "param": "clean_years", "min": 8.0}
+    ]},
+    {"name": "игроки_реже_лечились", "when": "substance == 'игровая зависимость'", "then": [
+      {"kind": "range", "param": "treatment_attempts", "max": 2.0},
+      {"kind": "weight", "param": "turning_point", "value": "проблемы со здоровьем", "factor": 0.2}
+    ]},
+    {"name": "опиаты_чаще_с_законом", "when": "in(substance, 'опиаты', 'стимуляторы')", "then": [
+      {"kind": "weight", "param": "turning_point", "value": "проблемы с законом", "factor": 3.0}
+    ]},
+    {"name": "учёба_без_работы_только_у_рано_бросивших", "when": "sobriety_age > 26", "then": [
+      {"kind": "weight", "param": "previous_profession", "value": "учился, не успел поработать", "factor": 0.0}
+    ]},
+    {"name": "образованные_приходят_после_обучения", "when": "recovery_background == 'без личного опыта, пришёл через образование'", "then": [
+      {"kind": "weight", "param": "previous_profession", "value": "педагог или социальный работник", "factor": 4.0},
+      {"kind": "weight", "param": "path_to_work", "value": "пришёл после обучения на консультанта", "factor": 5.0},
+      {"kind": "weight", "param": "path_to_work", "value": "через сообщество, остался помогать", "factor": 0.0},
+      {"kind": "weight", "param": "path_to_work", "value": "вернулся в центр, где проходил программу", "factor": 0.0},
+      {"kind": "weight", "param": "training", "value": "профильное психологическое образование", "factor": 6.0}
+    ]},
+    {"name": "волонтёры_волонтёрствовали", "when": "path_to_work == 'начинал волонтёром'", "then": [
+      {"kind": "range", "param": "volunteer_years", "min": 1.0}
+    ]},
+    {"name": "короткая_трезвость_короткий_путь", "when": "recovery_background == 'выздоравливающий, прошёл программу' and clean_years < 8", "then": [
+      {"kind": "range", "param": "volunteer_years", "max": 1.0},
+      {"kind": "weight", "param": "prior_centers", "value": "два-три центра", "factor": 0.0}
+    ]},
+    {"name": "совсем_короткая_трезвость_без_прежних_мест", "when": "recovery_background == 'выздоравливающий, прошёл программу' and clean_years < 6", "then": [
+      {"kind": "force", "param": "prior_centers", "value": "нет"}
+    ]},
+    {"name": "молодым_меньше_прежних_мест", "when": "age <= 34", "then": [
+      {"kind": "weight", "param": "prior_centers", "value": "нет", "factor": 3.0},
+      {"kind": "weight", "param": "prior_centers", "value": "два-три центра", "factor": 0.2}
+    ]},
+    {"name": "нет_прежних_нет_лет", "when": "prior_centers == 'нет'", "then": [{"kind": "range", "param": "prior_years", "max": 0.0}]},
+    {"name": "один_прежний_центр", "when": "prior_centers == 'один центр'", "then": [{"kind": "range", "param": "prior_years", "min": 1.0, "max": 8.0}]},
+    {"name": "несколько_прежних_центров", "when": "prior_centers == 'два-три центра'", "then": [{"kind": "range", "param": "prior_years", "min": 3.0}]},
+    {"name": "прежний_стаж_внутри_трезвости", "when": "recovery_background == 'выздоравливающий, прошёл программу' and clean_years < 12", "then": [
+      {"kind": "range", "param": "prior_years", "max": 5.0},
+      {"kind": "range", "param": "current_years", "max": 5.0}
+    ]},
+    {"name": "молодые_недавно_в_центре", "when": "age <= 34", "then": [
+      {"kind": "range", "param": "prior_years", "max": 4.0},
+      {"kind": "range", "param": "current_years", "max": 5.0}
+    ]},
+    {"name": "не_ведёт_групп", "when": "not group_work", "then": [{"kind": "force", "param": "group_type", "value": "не ведёт"}]},
+    {"name": "ведёт_группу", "when": "group_work", "then": [{"kind": "weight", "param": "group_type", "value": "не ведёт", "factor": 0.0}]},
+    {"name": "опытные_наставничают", "when": "experience_years >= 8", "then": [{"kind": "weight", "param": "sponsor_experience", "value": "true", "factor": 3.0}]},
+    {"name": "новички_не_наставничают", "when": "experience_years < 3", "then": [{"kind": "weight", "param": "sponsor_experience", "value": "true", "factor": 0.0}]},
+    {"name": "группа_родственников_значит_семьи", "when": "group_type == 'группа для родственников'", "then": [
+      {"kind": "force", "param": "family_work", "value": true}
+    ]},
+    {"name": "созависимые_работают_с_семьями", "when": "recovery_background == 'созависимый, прошёл программу для родственников'", "then": [
+      {"kind": "weight", "param": "family_work", "value": "true", "factor": 4.0},
+      {"kind": "weight", "param": "focus", "value": "созависимые родственники", "factor": 5.0}
+    ]},
+    {"name": "без_семей_без_группы_родственников", "when": "not family_work", "then": [
+      {"kind": "weight", "param": "focus", "value": "созависимые родственники", "factor": 0.2}
+    ]},
+    {"name": "выздоровление_только_у_выздоравливающих", "when": "recovery_background != 'выздоравливающий, прошёл программу'", "then": [
+      {"kind": "weight", "param": "why_stays", "value": "это часть собственного выздоровления", "factor": 0.0},
+      {"kind": "weight", "param": "attitude", "value": "на равных, как человек, прошедший тот же путь", "factor": 0.1}
+    ]},
+    {"name": "выздоравливающие_благодарны", "when": "recovery_background == 'выздоравливающий, прошёл программу'", "then": [
+      {"kind": "weight", "param": "why_stays", "value": "чувство долга перед теми, кто помог", "factor": 2.0},
+      {"kind": "weight", "param": "why_stays", "value": "профессиональный интерес к теме", "factor": 0.3}
+    ]},
+    {"name": "семьи_к_случаю", "when": "family_work", "then": [
+      {"kind": "weight", "param": "memorable_case", "value": "семья, которая заново научилась разговаривать", "factor": 2.5}
+    ]}
+  ]
+}

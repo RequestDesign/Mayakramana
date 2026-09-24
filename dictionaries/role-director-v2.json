@@ -1,0 +1,347 @@
+{
+  "name": "role-director-v2",
+  "version": 2,
+  "description": "Черновик на согласование. Руководитель с жизненным путём целиком: кем был до сферы и сколько лет, был ли перерыв (у выздоравливающих — годы зависимости), сколько работал в сфере до руководства и сколько руководит. Годы в сфере — не случайное число, а остаток жизни после всего предыдущего; срок трезвости у выздоравливающего вычисляется из них же. Поэтому возраст, стаж, трезвость и годы руководства не могут противоречить друг другу.",
+  "extends": ["human-core-v2.json", "human-visual-v2.json"],
+  "params": [
+    {
+      "key": "background",
+      "title": "Откуда пришёл",
+      "group": "путь",
+      "identity": true,
+      "note": "Главный параметр роли: врач-основатель, выздоравливающий-основатель и управленец строят разные центры.",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "врач, открывший свой центр", "weight": 24},
+        {"value": "психолог, выросший до руководителя", "weight": 18},
+        {"value": "выздоравливающий, основавший центр после своего пути", "weight": 34},
+        {"value": "управленец из другой отрасли", "weight": 14},
+        {"value": "консультант, выросший до руководителя", "weight": 10}
+      ]}
+    },
+    {
+      "key": "education",
+      "title": "Образование",
+      "group": "образование",
+      "identity": true,
+      "domain": {"kind": "enum", "variants": [
+        {"value": "медицинское", "weight": 22},
+        {"value": "психологическое", "weight": 20},
+        {"value": "экономическое или управленческое", "weight": 18},
+        {"value": "техническое", "weight": 14},
+        {"value": "педагогическое", "weight": 10},
+        {"value": "без высшего", "weight": 16}
+      ]}
+    },
+    {
+      "key": "management_training",
+      "title": "Учился управлению",
+      "group": "образование",
+      "mention": "background",
+      "directive": "учился ли управлению (упоминать, только если это важно для истории)",
+      "domain": {"kind": "bool", "p_true": 0.2}
+    },
+    {
+      "key": "start_work_age",
+      "title": "Возраст начала работы",
+      "usage": "store_only",
+      "domain": {"kind": "int", "min": 18, "max": 27, "weights": [8, 8, 8, 10, 14, 16, 14, 10, 7, 5]}
+    },
+    {
+      "key": "before_field",
+      "title": "Чем занимался до сферы",
+      "group": "путь",
+      "identity": true,
+      "domain": {"kind": "enum", "variants": [
+        {"value": "нет", "weight": 26},
+        {"value": "общая медицина", "weight": 10},
+        {"value": "бизнес", "weight": 16},
+        {"value": "торговля", "weight": 12},
+        {"value": "производство", "weight": 10},
+        {"value": "госслужба", "weight": 8},
+        {"value": "военная служба", "weight": 8},
+        {"value": "творческая работа", "weight": 10}
+      ]}
+    },
+    {
+      "key": "before_field_years",
+      "title": "Лет до сферы",
+      "group": "путь",
+      "domain": {"kind": "int", "min": 0, "max": 20}
+    },
+    {
+      "key": "career_gap_years",
+      "title": "Перерыв в работе",
+      "group": "путь",
+      "usage": "store_only",
+      "note": "У выздоравливающих — годы зависимости и первые годы трезвости. У остальных — небольшой, объяснимый жизнью перерыв.",
+      "domain": {"kind": "int", "min": 0, "max": 15,
+        "weights": [30, 18, 12, 9, 7, 6, 5, 4, 3, 2, 1.5, 1.2, 1, 0.8, 0.6, 0.5]}
+    },
+    {
+      "key": "sober_before_field_years",
+      "title": "Лет трезвости до прихода в сферу",
+      "usage": "store_only",
+      "domain": {"kind": "int", "min": 0, "max": 6, "weights": [40, 18, 14, 10, 8, 6, 4]}
+    },
+    {
+      "key": "leading_years",
+      "title": "Лет во главе центра",
+      "group": "опыт",
+      "domain": {"kind": "int", "min": 1, "max": 25,
+        "weights": [8, 9, 9, 9, 8, 8, 7, 6, 5, 5, 4, 4, 3, 3, 2.5, 2, 2, 1.5, 1.2, 1, 1, 0.8, 0.6, 0.5, 0.4]}
+    },
+    {
+      "key": "field_years",
+      "title": "Лет в сфере",
+      "group": "опыт",
+      "identity": true,
+      "note": "Остаток жизни после начала работы, прежней профессии и перерыва.",
+      "domain": {"kind": "computed", "expr": "age - start_work_age - before_field_years - career_gap_years"}
+    },
+    {
+      "key": "field_before_lead_years",
+      "title": "Лет в сфере до руководства",
+      "group": "опыт",
+      "domain": {"kind": "computed", "expr": "field_years - leading_years"}
+    },
+    {
+      "key": "clean_years",
+      "title": "Лет в трезвости",
+      "group": "путь",
+      "note": "Только у выздоравливающих: годы в сфере плюс трезвость до прихода в неё. У остальных ноль, и это не упоминается.",
+      "domain": {"kind": "computed", "expr": "(field_years + sober_before_field_years) * (background == 'выздоравливающий, основавший центр после своего пути')"}
+    },
+    {
+      "key": "founder",
+      "title": "Основатель центра",
+      "group": "путь",
+      "domain": {"kind": "bool", "p_true": 0.6}
+    },
+    {
+      "key": "centers_opened",
+      "title": "Центров открыл",
+      "group": "путь",
+      "mention": "background",
+      "directive": "сколько центров открыл сам (если один — не упоминать)",
+      "domain": {"kind": "int", "min": 0, "max": 3, "weights": [40, 44, 12, 4]}
+    },
+    {
+      "key": "motivation",
+      "title": "Почему занимается этим",
+      "group": "путь",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "собственный путь выздоровления", "weight": 30},
+        {"value": "потеря близкого человека", "weight": 14},
+        {"value": "профессиональное убеждение, что помощь можно сделать лучше", "weight": 32},
+        {"value": "увидел, как мало хороших мест в своём регионе", "weight": 24}
+      ]}
+    },
+    {
+      "key": "hardest_moment",
+      "title": "Самое трудное в истории центра",
+      "group": "путь",
+      "mention": "background",
+      "directive": "через что прошёл центр (одной фразой, без драматизации и цифр)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "нет", "weight": 20},
+        {"value": "начинали с одного дома и нескольких мест", "weight": 22},
+        {"value": "уход ключевых сотрудников", "weight": 14},
+        {"value": "переезд в новое здание", "weight": 16},
+        {"value": "денежный кризис", "weight": 16},
+        {"value": "потеря выпускника после выписки", "weight": 12}
+      ]}
+    },
+    {
+      "key": "center_principle",
+      "title": "На чём настаивает в центре",
+      "group": "опыт",
+      "identity": true,
+      "domain": {"kind": "enum", "variants": [
+        {"value": "честность с семьями о сроках и шансах", "weight": 22},
+        {"value": "центр как дом, а не больница", "weight": 20},
+        {"value": "опора на проверенные методы", "weight": 18},
+        {"value": "сопровождение после выписки", "weight": 22},
+        {"value": "выпускники в команде центра", "weight": 18}
+      ]}
+    },
+    {
+      "key": "public_activity",
+      "title": "Публичная деятельность",
+      "group": "опыт",
+      "domain": {"kind": "multi_enum", "min_pick": 0, "max_pick": 2, "variants": [
+        {"value": "выступает на профильных конференциях", "weight": 20},
+        {"value": "ведёт просветительскую работу в школах", "weight": 16},
+        {"value": "участвует в общественных советах", "weight": 10},
+        {"value": "пишет о зависимости для широкой аудитории", "weight": 12}
+      ]}
+    },
+    {
+      "key": "management_style",
+      "title": "Как руководит",
+      "group": "опыт",
+      "mention": "background",
+      "directive": "стиль руководства (показать через поступки и решения, не называть)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "сам ведёт группы, остаётся в работе с людьми", "weight": 30},
+        {"value": "строит команду и процессы, в группы не ходит", "weight": 30},
+        {"value": "держит строгий режим и дисциплину", "weight": 20},
+        {"value": "делает ставку на семейную атмосферу", "weight": 20}
+      ]}
+    },
+    {
+      "key": "quote_theme",
+      "title": "О чём цитата",
+      "group": "путь",
+      "mention": "background",
+      "directive": "тема цитаты (о чём сказать, не называя тему)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "ответственность перед семьями", "weight": 20},
+        {"value": "выздоровление возможно", "weight": 20},
+        {"value": "команда решает всё", "weight": 18},
+        {"value": "помощь без обмана", "weight": 22},
+        {"value": "жизнь после центра", "weight": 20}
+      ]}
+    },
+    {
+      "key": "attitude",
+      "title": "Как говорит о деле",
+      "group": "путь",
+      "mention": "background",
+      "directive": "интонация (показать тоном, не описывать)",
+      "domain": {"kind": "enum", "variants": [
+        {"value": "спокойно и по-деловому", "weight": 30},
+        {"value": "горячо, как о личном", "weight": 24},
+        {"value": "сдержанно, без громких слов", "weight": 30},
+        {"value": "с мягким юмором", "weight": 16}
+      ]}
+    },
+
+    {"key": "full_name", "title": "ФИО", "group": "базовые", "identity": true, "mention": "required", "domain": {"kind": "derived"}},
+    {"key": "biography", "title": "Биография", "group": "текст", "domain": {"kind": "derived"}},
+    {"key": "professional_path", "title": "Профессиональный путь", "group": "текст", "domain": {"kind": "derived"}},
+    {"key": "quote", "title": "Цитата", "group": "текст", "domain": {"kind": "derived"}}
+  ],
+  "hard": [
+    {"name": "руководитель_не_слишком_молод", "expr": "age >= 30", "message": "руководитель центра младше 30 лет"},
+    {"name": "в_сфере_хотя_бы_руководство", "expr": "field_before_lead_years >= 0", "message": "руководит дольше, чем прожил после прежней работы"},
+    {"name": "в_сфере_не_меньше_четырёх_лет", "expr": "field_years >= 4", "message": "меньше четырёх лет в сфере"},
+    {"name": "врач_с_медицинским", "expr": "background != 'врач, открывший свой центр' or education == 'медицинское'", "message": "врач без медицинского образования"},
+    {"name": "психолог_с_психологическим", "expr": "background != 'психолог, выросший до руководителя' or education == 'психологическое'", "message": "психолог без психологического образования"},
+    {"name": "медицинское_только_у_врачей", "expr": "education != 'медицинское' or background == 'врач, открывший свой центр' or before_field == 'общая медицина'", "message": "медицинское образование без медицинской работы"},
+    {"name": "врач_основатель_не_юн", "expr": "background != 'врач, открывший свой центр' or age >= 38", "message": "врач, открывший свой центр, моложе 38 лет"},
+    {"name": "врач_работал_до_открытия", "expr": "background != 'врач, открывший свой центр' or field_before_lead_years >= 5", "message": "врач открыл центр, почти не поработав"},
+    {"name": "выросшие_изнутри_работали_до", "expr": "not in(background, 'психолог, выросший до руководителя', 'консультант, выросший до руководителя') or field_before_lead_years >= 3", "message": "вырос до руководителя меньше чем за три года"},
+    {"name": "управленец_пришёл_из_отрасли", "expr": "background != 'управленец из другой отрасли' or (not in(before_field, 'нет', 'общая медицина') and before_field_years >= 5)", "message": "управленец без опыта в другой отрасли"},
+    {"name": "прежняя_работа_с_годами", "expr": "(before_field == 'нет') == (before_field_years == 0)", "message": "прежняя работа не сходится с годами"},
+    {"name": "перерыв_у_остальных_небольшой", "expr": "background == 'выздоравливающий, основавший центр после своего пути' or career_gap_years <= 4", "message": "долгий перерыв в работе без объяснения"},
+    {"name": "у_выздоравливающих_годы_зависимости", "expr": "background != 'выздоравливающий, основавший центр после своего пути' or career_gap_years >= sober_before_field_years + 2", "message": "в перерыве не помещаются годы зависимости и первые годы трезвости"},
+    {"name": "трезвость_до_сферы_только_у_выздоравливающих", "expr": "background == 'выздоравливающий, основавший центр после своего пути' or sober_before_field_years == 0", "message": "годы трезвости у человека без зависимости"},
+    {"name": "выздоравливающий_трезв_не_меньше_шести_лет", "expr": "background != 'выздоравливающий, основавший центр после своего пути' or clean_years >= 6", "message": "руководит центром при коротком сроке трезвости"},
+    {"name": "мотивация_путём_требует_пути", "expr": "motivation != 'собственный путь выздоровления' or background == 'выздоравливающий, основавший центр после своего пути'", "message": "мотивация собственным выздоровлением у человека без зависимости"},
+    {"name": "основатель_открывал_центры", "expr": "founder == (centers_opened >= 1)", "message": "число открытых центров не сходится с тем, основатель ли он"},
+    {"name": "врач_основатель", "expr": "background != 'врач, открывший свой центр' or founder", "message": "врач, открывший свой центр, не основатель"},
+    {"name": "несколько_центров_у_опытных", "expr": "centers_opened < 2 or leading_years >= 6", "message": "открыл несколько центров меньше чем за шесть лет"},
+    {"name": "управленец_со_стороны_без_выпускников_в_команде", "expr": "center_principle != 'выпускники в команде центра' or background != 'управленец из другой отрасли'", "message": "управленец со стороны строит команду на выпускниках"}
+  ],
+  "soft": [
+    {"name": "врач_медицинское", "when": "background == 'врач, открывший свой центр'", "then": [{"kind": "force", "param": "education", "value": "медицинское"}]},
+    {"name": "психолог_психологическое", "when": "background == 'психолог, выросший до руководителя'", "then": [{"kind": "force", "param": "education", "value": "психологическое"}]},
+    {"name": "управленцы_учились_управлять", "when": "background == 'управленец из другой отрасли'", "then": [
+      {"kind": "weight", "param": "education", "value": "экономическое или управленческое", "factor": 4.0},
+      {"kind": "weight", "param": "education", "value": "техническое", "factor": 2.0},
+      {"kind": "weight", "param": "education", "value": "медицинское", "factor": 0.0},
+      {"kind": "weight", "param": "education", "value": "психологическое", "factor": 0.2},
+      {"kind": "weight", "param": "management_training", "value": "true", "factor": 4.0}
+    ]},
+    {"name": "не_врачи_без_медицинского", "when": "background != 'врач, открывший свой центр'", "then": [
+      {"kind": "weight", "param": "education", "value": "медицинское", "factor": 0.05}
+    ]},
+    {"name": "консультанты_проще_образованием", "when": "background == 'консультант, выросший до руководителя'", "then": [
+      {"kind": "weight", "param": "education", "value": "без высшего", "factor": 2.0},
+      {"kind": "weight", "param": "education", "value": "педагогическое", "factor": 2.0}
+    ]},
+    {"name": "с_высшим_начинают_позже", "when": "education != 'без высшего'", "then": [{"kind": "range", "param": "start_work_age", "min": 21.0}]},
+    {"name": "врачи_начинают_после_ординатуры", "when": "education == 'медицинское'", "then": [{"kind": "range", "param": "start_work_age", "min": 24.0}]},
+    {"name": "без_высшего_начинают_рано", "when": "education == 'без высшего'", "then": [{"kind": "range", "param": "start_work_age", "max": 22.0}]},
+
+    {"name": "управленцы_из_отрасли", "when": "background == 'управленец из другой отрасли'", "then": [
+      {"kind": "weight", "param": "before_field", "value": "нет", "factor": 0.0},
+      {"kind": "weight", "param": "before_field", "value": "общая медицина", "factor": 0.0},
+      {"kind": "weight", "param": "before_field", "value": "бизнес", "factor": 3.0}
+    ]},
+    {"name": "врачи_без_посторонней_работы", "when": "background == 'врач, открывший свой центр'", "then": [
+      {"kind": "weight", "param": "before_field", "value": "нет", "factor": 3.0},
+      {"kind": "weight", "param": "before_field", "value": "общая медицина", "factor": 4.0},
+      {"kind": "weight", "param": "before_field", "value": "бизнес", "factor": 0.0},
+      {"kind": "weight", "param": "before_field", "value": "торговля", "factor": 0.0},
+      {"kind": "weight", "param": "before_field", "value": "производство", "factor": 0.0},
+      {"kind": "weight", "param": "before_field", "value": "творческая работа", "factor": 0.0}
+    ]},
+    {"name": "общая_медицина_только_с_медицинским", "when": "education != 'медицинское'", "then": [
+      {"kind": "weight", "param": "before_field", "value": "общая медицина", "factor": 0.0}
+    ]},
+    {"name": "нет_прежней_работы_нет_лет", "when": "before_field == 'нет'", "then": [{"kind": "range", "param": "before_field_years", "max": 0.0}]},
+    {"name": "есть_прежняя_работа_есть_годы", "when": "before_field != 'нет'", "then": [{"kind": "range", "param": "before_field_years", "min": 1.0}]},
+    {"name": "управленцы_долго_в_отрасли", "when": "background == 'управленец из другой отрасли'", "then": [{"kind": "range", "param": "before_field_years", "min": 5.0}]},
+    {"name": "молодым_коротко_до_сферы", "when": "age <= 40", "then": [{"kind": "range", "param": "before_field_years", "max": 7.0}]},
+    {"name": "до_сферы_не_всю_жизнь", "when": "age <= 52", "then": [{"kind": "range", "param": "before_field_years", "max": 12.0}]},
+
+    {"name": "выздоравливающие_теряли_годы", "when": "background == 'выздоравливающий, основавший центр после своего пути'", "then": [
+      {"kind": "range", "param": "career_gap_years", "min": 3.0},
+      {"kind": "range", "param": "sober_before_field_years", "min": 1.0, "max": 4.0}
+    ]},
+    {"name": "у_остальных_перерыв_короткий", "when": "background != 'выздоравливающий, основавший центр после своего пути'", "then": [
+      {"kind": "range", "param": "career_gap_years", "max": 4.0},
+      {"kind": "range", "param": "sober_before_field_years", "max": 0.0}
+    ]},
+    {"name": "молодым_перерыв_короче", "when": "age <= 40", "then": [{"kind": "range", "param": "career_gap_years", "max": 8.0}]},
+
+    {"name": "молодые_руководят_недавно", "when": "age <= 38", "then": [{"kind": "range", "param": "leading_years", "max": 5.0}]},
+    {"name": "до_45_руководят_не_дольше_12", "when": "age <= 45", "then": [{"kind": "range", "param": "leading_years", "max": 12.0}]},
+    {"name": "врачи_открывают_центр_позже", "when": "background == 'врач, открывший свой центр' and age <= 50", "then": [{"kind": "range", "param": "leading_years", "max": 10.0}]},
+
+    {"name": "врач_основатель", "when": "background == 'врач, открывший свой центр'", "then": [{"kind": "force", "param": "founder", "value": true}]},
+    {"name": "выздоравливающие_чаще_основатели", "when": "background == 'выздоравливающий, основавший центр после своего пути'", "then": [{"kind": "weight", "param": "founder", "value": "true", "factor": 4.0}]},
+    {"name": "выросшие_изнутри_не_основатели", "when": "in(background, 'психолог, выросший до руководителя', 'консультант, выросший до руководителя')", "then": [{"kind": "weight", "param": "founder", "value": "true", "factor": 0.15}]},
+    {"name": "не_основатель_не_открывал", "when": "not founder", "then": [{"kind": "range", "param": "centers_opened", "max": 0.0}]},
+    {"name": "основатель_открывал", "when": "founder", "then": [{"kind": "range", "param": "centers_opened", "min": 1.0}]},
+    {"name": "недавние_открыли_один", "when": "leading_years < 6", "then": [{"kind": "range", "param": "centers_opened", "max": 1.0}]},
+
+    {"name": "выздоравливающие_по_своему_пути", "when": "background == 'выздоравливающий, основавший центр после своего пути'", "then": [
+      {"kind": "weight", "param": "motivation", "value": "собственный путь выздоровления", "factor": 5.0}
+    ]},
+    {"name": "без_пути_без_такой_мотивации", "when": "background != 'выздоравливающий, основавший центр после своего пути'", "then": [
+      {"kind": "weight", "param": "motivation", "value": "собственный путь выздоровления", "factor": 0.0}
+    ]},
+    {"name": "потеря_близкого_к_истории", "when": "life_turn == 'зависимость в семье'", "then": [
+      {"kind": "weight", "param": "motivation", "value": "потеря близкого человека", "factor": 4.0}
+    ]},
+    {"name": "основатели_начинали_с_малого", "when": "founder", "then": [
+      {"kind": "weight", "param": "hardest_moment", "value": "начинали с одного дома и нескольких мест", "factor": 2.5}
+    ]},
+    {"name": "не_основатели_не_начинали", "when": "not founder", "then": [
+      {"kind": "weight", "param": "hardest_moment", "value": "начинали с одного дома и нескольких мест", "factor": 0.0}
+    ]},
+    {"name": "выздоравливающие_берут_выпускников", "when": "background == 'выздоравливающий, основавший центр после своего пути'", "then": [
+      {"kind": "weight", "param": "center_principle", "value": "выпускники в команде центра", "factor": 3.0}
+    ]},
+    {"name": "управленцы_без_выпускников", "when": "background == 'управленец из другой отрасли'", "then": [
+      {"kind": "weight", "param": "center_principle", "value": "выпускники в команде центра", "factor": 0.0},
+      {"kind": "weight", "param": "center_principle", "value": "опора на проверенные методы", "factor": 2.0}
+    ]},
+    {"name": "врачи_за_методы", "when": "background == 'врач, открывший свой центр'", "then": [
+      {"kind": "weight", "param": "center_principle", "value": "опора на проверенные методы", "factor": 3.0}
+    ]},
+    {"name": "выздоравливающие_в_группах", "when": "background == 'выздоравливающий, основавший центр после своего пути'", "then": [
+      {"kind": "weight", "param": "management_style", "value": "сам ведёт группы, остаётся в работе с людьми", "factor": 2.5}
+    ]},
+    {"name": "управленцы_строят_процессы", "when": "background == 'управленец из другой отрасли'", "then": [
+      {"kind": "weight", "param": "management_style", "value": "строит команду и процессы, в группы не ходит", "factor": 4.0},
+      {"kind": "weight", "param": "management_style", "value": "сам ведёт группы, остаётся в работе с людьми", "factor": 0.1}
+    ]},
+    {"name": "выздоравливающие_о_возможности", "when": "background == 'выздоравливающий, основавший центр после своего пути'", "then": [
+      {"kind": "weight", "param": "quote_theme", "value": "выздоровление возможно", "factor": 2.5},
+      {"kind": "weight", "param": "attitude", "value": "горячо, как о личном", "factor": 2.0}
+    ]}
+  ]
+}
