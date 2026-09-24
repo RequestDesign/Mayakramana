@@ -39,8 +39,44 @@ const WORDS: &[(&str, i64)] = &[
 /// Слова, после которых число означает срок в годах.
 const YEAR_MARKERS: &[&str] = &["лет", "года", "годами", "год", "летний", "летним"];
 
+/// Слова, после которых «N лет» означает возраст в момент события, а не срок:
+/// «в 24 года окончил», «с 19 лет работал».
+const AT_AGE: &[&str] = &["в", "во", "с", "со"];
+
+/// Утверждение о годах.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Claim {
+    pub value: i64,
+    /// «в 24 года» — возраст в какой-то момент; иначе срок или нынешний возраст.
+    pub at_age: bool,
+}
+
 /// Все утверждения вида «N лет», найденные в тексте.
 pub fn year_claims(text: &str) -> Vec<i64> {
+    let mut v: Vec<i64> = claims(text).into_iter().map(|c| c.value).collect();
+    v.sort_unstable();
+    v.dedup();
+    v
+}
+
+/// Календарные годы в тексте: «выпуск 2005 года», «в 1990-х».
+///
+/// Сроком они не являются и проверяются отдельно: событие не может случиться
+/// до рождения человека или в будущем.
+pub fn calendar_years(text: &str) -> Vec<i64> {
+    let mut v: Vec<i64> = text
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|t| t.len() == 4)
+        .filter_map(|t| t.parse::<i64>().ok())
+        .filter(|y| (1900..=2100).contains(y))
+        .collect();
+    v.sort_unstable();
+    v.dedup();
+    v
+}
+
+/// Утверждения о годах с пометкой, возраст это или срок.
+pub fn claims(text: &str) -> Vec<Claim> {
     let lower = text.to_lowercase();
     let tokens: Vec<String> = lower
         .split(|c: char| !c.is_alphanumeric())
@@ -69,8 +105,13 @@ pub fn year_claims(text: &str) -> Vec<i64> {
             continue;
         }
 
+        let at_age = i > 0 && AT_AGE.contains(&tokens[i - 1].as_str());
+
         if let Ok(n) = tok.parse::<i64>() {
-            out.push(n);
+            // Календарный год — не срок: «2005 года» проверяется отдельно.
+            if !(1900..=2100).contains(&n) {
+                out.push(Claim { value: n, at_age });
+            }
             continue;
         }
 
@@ -83,11 +124,10 @@ pub fn year_claims(text: &str) -> Vec<i64> {
             if next_units.is_some() {
                 consumed[i + 1] = true;
             }
-            out.push(tens + next_units.unwrap_or(0));
+            out.push(Claim { value: tens + next_units.unwrap_or(0), at_age });
         }
     }
 
-    out.sort_unstable();
     out.dedup();
     out
 }
@@ -126,6 +166,21 @@ mod tests {
     fn unrelated_numbers_are_ignored() {
         assert!(year_claims("принял 400 пациентов").is_empty());
         assert!(year_claims("кабинет номер 12").is_empty());
+    }
+
+    #[test]
+    fn age_at_moment_is_told_apart_from_duration() {
+        let c = claims("в 24 года окончил университет, 18 лет в наркологии");
+        assert!(c.contains(&Claim { value: 24, at_age: true }), "{c:?}");
+        assert!(c.contains(&Claim { value: 18, at_age: false }), "{c:?}");
+        assert!(claims("с девятнадцати лет работал")[0].at_age);
+    }
+
+    #[test]
+    fn calendar_years_are_not_durations() {
+        assert!(year_claims("выпуск 2005 года").is_empty());
+        assert_eq!(calendar_years("выпуск 2005 года, в 1990-х учился"), vec![1990, 2005]);
+        assert!(calendar_years("принял 1200 пациентов").is_empty());
     }
 
     #[test]

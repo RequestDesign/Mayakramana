@@ -615,3 +615,106 @@ fn prompt_block_is_not_empty_for_either_purpose() {
     assert!(!row.prompt_block(g.model(), Usage::Text).is_empty());
     assert!(!row.prompt_block(g.model(), Usage::Visual).is_empty());
 }
+
+/// Врач v2 с известными возрастом, стажем и возрастом выпуска.
+fn doctor_v2_row(age: i64, experience: i64, graduation_age: i64) -> (PersonGenerator, ParamRow) {
+    let model = ParamModel::load(root().join("dictionaries/role-doctor-v2.json")).unwrap();
+    let g = PersonGenerator::doctor(model);
+    let mut row = g.plan(&GenSpec::new(1).seed(8)).unwrap().remove(0);
+    row.set("age", Value::Int(age));
+    row.set("experience_years", Value::Int(experience));
+    row.set("graduation_age", Value::Int(graduation_age));
+    (g, row)
+}
+
+fn doctor_answer(bio: &str, age: i64, experience: i64) -> String {
+    json!({
+        "biography": bio,
+        "professional_path": "Начинал в государственной клинике, где вёл приём и дежурства. \
+            Постепенно сосредоточился на работе с длительными программами, а не только на \
+            снятии острых состояний. Считает, что без участия семьи результат почти всегда \
+            оказывается временным, поэтому много времени уделяет разговорам с родственниками.",
+        "quote": "Срыв — это не конец работы, а её часть. Важно, чтобы человек вернулся.",
+        "stated_age": age,
+        "stated_experience_years": experience
+    })
+    .to_string()
+}
+
+/// «В 24 года окончил» — возраст до начала стажа, но в пределах описанной
+/// жизни. Раньше такой верный текст отбраковывался как расхождение.
+#[test]
+fn age_at_graduation_is_not_a_drift() {
+    let (g, row) = doctor_v2_row(50, 18, 24);
+    let bio = "Вырос в небольшом городе и в 24 года окончил медицинский университет. \
+        Ординатуру проходил по психиатрии, там впервые увидел, как зависимость ломает \
+        жизнь не только пациенту, но и всей его семье. С тех пор работает в наркологии \
+        и не жалеет о выборе, хотя путь оказался длиннее, чем он думал.";
+    let r = g.accept_text(&row, &doctor_answer(bio, 50, 18));
+    assert!(r.is_ok(), "{r:?}");
+}
+
+/// Но преувеличенный стаж по-прежнему ловится: без предлога «в» число —
+/// срок, и 25 при стаже 18 ничем не объясняется.
+#[test]
+fn inflated_experience_is_still_caught() {
+    let (g, row) = doctor_v2_row(50, 18, 24);
+    let bio = "Вырос в небольшом городе, окончил медицинский университет. За 25 лет \
+        работы в наркологии видел самые разные истории и научился не делать поспешных \
+        выводов. Ординатуру проходил по психиатрии и до сих пор считает её лучшей школой \
+        для врача, который хочет работать с зависимостями.";
+    assert!(matches!(
+        g.accept_text(&row, &doctor_answer(bio, 50, 18)),
+        Err(RejectReason::FactDrift { .. })
+    ));
+}
+
+/// Календарный год проверяется по годам жизни: выпуск до рождения — ошибка,
+/// год выпуска в пределах жизни — нет.
+#[test]
+fn calendar_years_must_fall_within_life() {
+    let (g, row) = doctor_v2_row(40, 12, 24);
+    let bio_ok = "Окончил медицинский университет в областном центре, выпуск 2010 года. \
+        Ординатуру проходил по психиатрии, там впервые увидел, как зависимость ломает \
+        жизнь не только пациенту, но и всей его семье. С тех пор работает в наркологии \
+        и не жалеет о выборе, хотя путь оказался длиннее, чем он думал.";
+    let r = g.accept_text(&row, &doctor_answer(bio_ok, 40, 12));
+    assert!(r.is_ok(), "{r:?}");
+
+    let bio_bad = bio_ok.replace("2010", "1975");
+    assert!(matches!(
+        g.accept_text(&row, &doctor_answer(&bio_bad, 40, 12)),
+        Err(RejectReason::FactDrift { .. })
+    ));
+}
+
+/// Руководитель v2: годы в прежней профессии — законная длительность, хотя в
+/// стаж в сфере они не входят.
+#[test]
+fn director_v2_years_before_field_are_legitimate() {
+    let model = ParamModel::load(root().join("dictionaries/role-director-v2.json")).unwrap();
+    let g = PersonGenerator::director(model);
+    let mut row = g.plan(&GenSpec::new(1).seed(4)).unwrap().remove(0);
+    row.set("age", Value::Int(52));
+    row.set("field_years", Value::Int(9));
+    row.set("leading_years", Value::Int(6));
+    row.set("before_field_years", Value::Int(14));
+    row.set("start_work_age", Value::Int(22));
+
+    let answer = json!({
+        "biography": "Четырнадцать лет проработал в торговле и дошёл до руководителя \
+            регионального отделения. В 22 года начинал простым продавцом и привык, что \
+            любое дело держится на людях и порядке. В реабилитацию пришёл, когда увидел, \
+            как мало в регионе мест, где помогают по-честному, без громких обещаний.",
+        "professional_path": "Шесть лет руководит центром. Первым делом выстроил понятные \
+            правила для семей: что происходит с человеком на каждом этапе и чего ждать \
+            после выписки. Сам в группы не ходит, но знает каждого консультанта и держит \
+            команду вместе, когда становится трудно.",
+        "quote": "Семья должна понимать, за что платит и чего ждать. Без этого нет доверия.",
+        "stated_age": 52
+    })
+    .to_string();
+
+    let r = g.accept_text(&row, &answer);
+    assert!(r.is_ok(), "{r:?}");
+}

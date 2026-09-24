@@ -91,6 +91,9 @@ pub struct PersonGenerator {
     /// Параметры, означающие срок в годах. Числа в тексте сверяются с ними:
     /// всё, что не объясняется ни одной длительностью, — расхождение фактов.
     duration_params: Vec<&'static str>,
+    /// Параметры, означающие возраст в ключевой момент жизни: окончание вуза,
+    /// начало работы. «В 24 года окончил» объясняется ими, а не стажем.
+    moment_params: Vec<&'static str>,
     /// Какая доля оборотов одного абзаца может встречаться в другом.
     max_paragraph_overlap: f32,
 }
@@ -104,6 +107,7 @@ impl PersonGenerator {
             names: None,
             lengths: Lengths::DOCTOR,
             duration_params: vec!["experience_years"],
+            moment_params: vec!["graduation_age"],
             max_paragraph_overlap: 0.35,
         }
     }
@@ -115,6 +119,11 @@ impl PersonGenerator {
 
     pub fn with_durations(mut self, params: &[&'static str]) -> Self {
         self.duration_params = params.to_vec();
+        self
+    }
+
+    pub fn with_moments(mut self, params: &[&'static str]) -> Self {
+        self.moment_params = params.to_vec();
         self
     }
 
@@ -195,7 +204,10 @@ impl PersonGenerator {
         .with_system_prompt(prompt::CONSULTANT_SYSTEM)
         .with_lengths(Lengths::CONSULTANT)
         // Срок трезвости — законная длительность наравне со стажем.
-        .with_durations(&["experience_years", "clean_years"])
+        // Срок употребления и волонтёрство есть только в v2; отсутствующие
+        // параметры пропускаются, поэтому список общий для обеих версий.
+        .with_durations(&["experience_years", "clean_years", "use_years", "volunteer_years"])
+        .with_moments(&["use_start_age", "sobriety_age"])
     }
 
     /// Психолог: профильное образование обязательно, медикаментов не назначает.
@@ -210,6 +222,7 @@ impl PersonGenerator {
             model,
         )
         .with_durations(&["experience_years", "addiction_years"])
+        .with_moments(&["graduation_age"])
     }
 
     /// Руководитель центра. Главное в нём — путь и мотивация, от них
@@ -225,7 +238,14 @@ impl PersonGenerator {
             model,
         )
         .with_system_prompt(prompt::DIRECTOR_SYSTEM)
-        .with_durations(&["field_years", "leading_years", "clean_years"])
+        .with_durations(&[
+            "field_years",
+            "leading_years",
+            "clean_years",
+            "before_field_years",
+            "career_gap_years",
+        ])
+        .with_moments(&["start_work_age"])
     }
 
     pub fn with_system_prompt(mut self, p: impl Into<String>) -> Self {
@@ -435,29 +455,65 @@ impl Generator for PersonGenerator {
                 .collect();
             let longest = durations.iter().copied().max().unwrap_or(0);
 
-            for claim in year_claims(&prose) {
+            // С какого возраста жизнь человека описана фактами: самое раннее
+            // из ключевых событий либо начало самой длинной длительности.
+            let earliest = self
+                .moment_params
+                .iter()
+                .filter_map(|k| self.int_param(row, k))
+                .chain(std::iter::once(age - longest))
+                .min()
+                .unwrap_or(age - longest);
+
+            let drift = |found: String| RejectReason::FactDrift {
+                param: "experience_years".into(),
+                expected: format!(
+                    "возраст {age}, длительности {}",
+                    self.duration_params
+                        .iter()
+                        .filter_map(|k| self.int_param(row, k).map(|v| format!("{k}={v}")))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+                found,
+            };
+
+            for claim in claims::claims(&prose) {
+                let n = claim.value;
                 // Срок объясним, если это отрезок внутри одной из длительностей
                 // («первые пять лет»), либо возраст в какой-то момент этой
                 // длительности («в 48 лет пришёл в наркологию» при возрасте 57
                 // и стаже 9).
-                let as_duration = claim > 0 && durations.iter().any(|d| claim <= *d);
-                let as_age_at_moment = claim >= age - longest && claim <= age;
+                let as_duration = n > 0 && durations.iter().any(|d| n <= *d);
+                let as_age_at_moment = n >= age - longest && n <= age;
+                // «В 24 года окончил» — возраст до стажа, но в пределах
+                // описанной фактами жизни. Только с предлогом: иначе «25 лет
+                // стажа» при стаже 18 прошло бы как чей-то возраст.
+                let as_early_moment = claim.at_age && n >= earliest && n <= age;
 
-                if !(as_duration || as_age_at_moment) {
-                    return Err(RejectReason::FactDrift {
-                        param: if claim > age { "age".into() } else { "experience_years".into() },
-                        expected: format!(
-                            "возраст {age}, длительности {}",
-                            self.duration_params
-                                .iter()
-                                .zip(&durations)
-                                .map(|(k, v)| format!("{k}={v}"))
-                                .collect::<Vec<_>>()
-                                .join(", ")
-                        ),
-                        found: format!("{claim} лет"),
-                    });
+                if !(as_duration || as_age_at_moment || as_early_moment) {
+                    let mut e = drift(format!("{n} лет"));
+                    if n > age {
+                        if let RejectReason::FactDrift { param, .. } = &mut e {
+                            *param = "age".into();
+                        }
+                    }
+                    return Err(e);
                 }
+            }
+
+            // Календарные годы: событие не раньше рождения и не в будущем.
+            let now = REFERENCE_YEAR as i64;
+            let born = now - age;
+            if let Some(y) = claims::calendar_years(&prose)
+                .into_iter()
+                .find(|y| *y < born || *y > now)
+            {
+                return Err(RejectReason::FactDrift {
+                    param: "age".into(),
+                    expected: format!("годы жизни {born}–{now}"),
+                    found: format!("{y} год"),
+                });
             }
         }
 
