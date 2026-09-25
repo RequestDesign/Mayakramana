@@ -64,6 +64,10 @@ impl ParamRow {
 
     /// Блок параметров для подстановки в промпт.
     ///
+    /// В текстовый промпт не попадает «отсутствие»: ложный признак, ноль,
+    /// «нет», пустой список. Переданное модели как «Лет в трезвости: 0» или
+    /// «Чем занимался до сферы: нет», оно становится фразой в биографии.
+    ///
     /// Фильтрация по назначению принципиальна: все параметры хранятся, но в
     /// промпт уходит только нужное подмножество — биография пишется по одним,
     /// портрет по другим. Иначе на десяти тысячах сущностей набегает лишний
@@ -84,6 +88,9 @@ impl ParamRow {
             }
             let Some(v) = self.get(&p.key) else { continue };
             if v.is_null() {
+                continue;
+            }
+            if is_absent(v) {
                 continue;
             }
             // Директивой, а не парой «название: значение» — иначе модель
@@ -143,7 +150,7 @@ impl ParamRow {
             // модели как «Работа с родственниками: нет», он превращается во
             // фразу «с родственниками он не работает»: просьба не перечислять
             // отрицания соблюдается через раз. Надёжнее не передавать вовсе.
-            if filter_by_mention && matches!(v, Value::Bool(false)) {
+            if filter_by_mention && is_absent(v) {
                 continue;
             }
             let g = p.group.as_str();
@@ -180,5 +187,16 @@ impl ParamRow {
 impl FromIterator<(String, Value)> for ParamRow {
     fn from_iter<T: IntoIterator<Item = (String, Value)>>(iter: T) -> Self {
         Self { values: iter.into_iter().collect() }
+    }
+}
+
+/// Значение означает отсутствие признака, а не факт.
+fn is_absent(v: &Value) -> bool {
+    match v {
+        Value::Bool(false) | Value::Int(0) | Value::Null => true,
+        Value::Float(f) => *f == 0.0,
+        Value::Str(s) => matches!(s.trim(), "" | "нет" | "не ведёт"),
+        Value::List(l) => l.is_empty(),
+        _ => false,
     }
 }

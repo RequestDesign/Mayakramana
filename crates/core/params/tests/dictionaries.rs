@@ -426,3 +426,35 @@ fn program_v2_rules_agree_with_regime() {
         }
     }
 }
+
+/// В текстовый промпт не уходит отсутствие признака: ни «Лет в трезвости: 0»,
+/// ни «Чем занимался до сферы: нет», ни пустой список. Иначе модель честно
+/// перескажет это в биографии.
+#[test]
+fn text_prompt_carries_no_absent_values() {
+    for file in [
+        "role-doctor-v2.json",
+        "role-consultant-v2.json",
+        "role-psychologist-v2.json",
+        "role-director-v2.json",
+        "object-place-v2.json",
+        "object-program-v2.json",
+    ] {
+        let m = ParamModel::load(dict(file)).unwrap_or_else(|e| panic!("{file}: {e}"));
+        let pop = Sampler::new(&m, 91).sample_population(&PopulationPlan::uniform(200)).unwrap();
+        for s in &pop {
+            let text = format!(
+                "{}{}",
+                s.row.prompt_block(&m, Usage::Text),
+                s.row.background_block(&m, Usage::Text)
+            );
+            for line in text.lines() {
+                let value = line.rsplit(": ").next().unwrap_or("").trim();
+                assert!(
+                    !(line.contains(": ") && matches!(value, "0" | "нет" | "не ведёт" | "")),
+                    "{file}: в промпт ушло отсутствие — «{line}»"
+                );
+            }
+        }
+    }
+}
