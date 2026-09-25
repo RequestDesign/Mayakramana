@@ -56,11 +56,20 @@ pub struct FieldSpec {
     pub name: String,
     pub slug: String,
     pub field_type: FieldType,
+    /// Сервер отклоняет запись с уже существующим значением поля (мягко
+    /// удалённые не в счёт).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub is_unique: bool,
 }
 
 impl FieldSpec {
     pub fn new(name: impl Into<String>, slug: impl Into<String>, field_type: FieldType) -> Self {
-        Self { name: name.into(), slug: slug.into(), field_type }
+        Self { name: name.into(), slug: slug.into(), field_type, is_unique: false }
+    }
+
+    pub fn unique(mut self) -> Self {
+        self.is_unique = true;
+        self
     }
 }
 

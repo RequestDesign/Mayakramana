@@ -148,6 +148,13 @@ impl Nexorium {
             .await
     }
 
+    /// Удалить коллекцию вместе с полями и записями. Требует `admin`.
+    pub async fn delete_collection(&self, collection: CollectionId) -> Result<()> {
+        let url = self.url(&format!("collections/{collection}"))?;
+        self.send(Idempotency::Safe, || self.http.delete(url.clone())).await?;
+        Ok(())
+    }
+
     // --------------------------------------------------------------- чтение
 
     pub async fn list(&self, collection: CollectionId, q: &Query) -> Result<Page> {

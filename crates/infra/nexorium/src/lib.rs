@@ -43,7 +43,9 @@ pub mod meta {
         use crate::{FieldSpec, FieldType};
         vec![
             FieldSpec::new("Пачка", BATCH_ID, FieldType::Text),
-            FieldSpec::new("Естественный ключ", NATURAL_KEY, FieldType::Text),
+            // Уникальность на стороне сервера: повтор пачки после обрыва не
+            // создаст дубля, даже если сверка по batch_id не успела.
+            FieldSpec::new("Естественный ключ", NATURAL_KEY, FieldType::Text).unique(),
             FieldSpec::new("Сессия", SESSION_ID, FieldType::Text),
             FieldSpec::new("Сгенерировано", GENERATED_AT, FieldType::Datetime),
         ]
