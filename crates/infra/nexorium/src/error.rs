@@ -47,6 +47,18 @@ impl Error {
         matches!(self, Error::RateLimited)
     }
 
+    /// Сервер отверг запись, потому что значение уникального поля уже есть.
+    /// Для нас это значит «запись уже в базе», а не ошибка.
+    pub fn is_unique_conflict(&self) -> bool {
+        match self {
+            Error::Api { status, body } => {
+                (*status == 400 || *status == 409) && body.contains("must be unique")
+            }
+            Error::Exhausted { last, .. } => last.is_unique_conflict(),
+            _ => false,
+        }
+    }
+
     pub fn status(&self) -> Option<u16> {
         match self {
             Error::Api { status, .. } => Some(*status),
@@ -73,5 +85,24 @@ impl fmt::Display for Idempotency {
             Idempotency::Safe => write!(f, "safe"),
             Idempotency::Unsafe => write!(f, "unsafe"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Текст — дословно из ответа живого сервера на повтор natural_key.
+    #[test]
+    fn unique_conflict_is_recognized() {
+        let e = Error::Api {
+            status: 400,
+            body: r#"{"error":{"code":"BAD_REQUEST","message":"Bulk create failed at record 1: Conflict: Field 'Естественный ключ': value must be unique"}}"#.into(),
+        };
+        assert!(e.is_unique_conflict());
+        assert!(!e.is_indeterminate(), "дубль — не неизвестный исход");
+
+        let other = Error::Api { status: 400, body: "bad field".into() };
+        assert!(!other.is_unique_conflict());
     }
 }

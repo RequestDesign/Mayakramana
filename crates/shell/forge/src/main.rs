@@ -11,6 +11,7 @@
 //! forge mark     <сессия> <ключ> bad фон угрюмый --comment "…"
 //! forge feedback <сессия>                  — сводка приёмки
 //! forge mcp                                — агент по протоколу (MCP поверх stdio)
+//! forge upload   [коллекция…]              — залить out/*.jsonl в Nexorium
 //! ```
 //!
 //! Это слой оболочки: здесь и только здесь генератор встречается с
@@ -43,6 +44,7 @@ async fn main() {
         .with_writer(std::io::stderr)
         .init();
 
+    load_dotenv();
     let args: Vec<String> = std::env::args().skip(1).collect();
     let cmd = args.first().map(String::as_str).unwrap_or("help");
 
@@ -62,6 +64,7 @@ async fn main() {
         "site" => cmd_site().await,
         "photos" => cmd_photos(&args).await,
         "mcp" => mcp::serve().await,
+        "upload" => cmd_upload(&args).await,
         _ => {
             usage();
             return;
@@ -85,7 +88,8 @@ fn usage() {
          forge show     <сессия> [сколько]\n\
          forge mark     <сессия> <ключ> good|bad [метки…] [--comment «…»]\n\
          forge feedback <сессия>\n\
-         forge mcp      — агент по протоколу (MCP поверх stdio)\n\n\
+         forge mcp      — агент по протоколу (MCP поверх stdio)\n\
+         forge upload   [коллекция…] — залить out/*.jsonl в Nexorium\n\n\
          Виды: doctor, consultant, psychologist, director, place, program\n\
          Черновики на согласовании: те же с суффиксом -v2 (doctor-v2, place-v2…)"
     );
@@ -104,6 +108,47 @@ fn flag(args: &[String], name: &str) -> Option<String> {
         .position(|a| a == name)
         .and_then(|i| args.get(i + 1))
         .cloned()
+}
+
+/// Куда пишется результат.
+///
+/// Есть доступ к Nexorium — пишем туда, а в `out/` держим копию для сборки
+/// центров, страниц и съёмки. Нет — только в `out/`, как при отладке.
+fn content_store() -> Result<Arc<dyn synthforge_ports::ContentStore>, Box<dyn std::error::Error>> {
+    let local: Arc<dyn synthforge_ports::ContentStore> = Arc::new(JsonlStore::new(OUT_DIR));
+    let Some(nx) = nexorium()? else {
+        return Ok(local);
+    };
+    let primary = Arc::new(synthforge_nexorium::NexoriumStore::new(nx));
+    Ok(Arc::new(synthforge_engine::MirrorStore::new(primary, local)))
+}
+
+/// Клиент Nexorium, если в окружении есть доступ к пространству.
+fn nexorium() -> Result<Option<Arc<synthforge_nexorium::Nexorium>>, Box<dyn std::error::Error>> {
+    let var = |k: &str| std::env::var(k).ok().filter(|v| !v.trim().is_empty());
+    let (Some(space), Some(key)) = (var("NEXORIUM_SPACE"), var("NEXORIUM_KEY")) else {
+        return Ok(None);
+    };
+    let base = var("NEXORIUM_BASE").unwrap_or_else(|| "https://nexorium.trger.ru/api/v1".into());
+    let cfg = synthforge_nexorium::Config::at(&base, space, key)?;
+    Ok(Some(Arc::new(synthforge_nexorium::Nexorium::new(cfg)?)))
+}
+
+/// `.env` из текущей папки. Уже заданные переменные окружения важнее файла.
+fn load_dotenv() {
+    let Ok(text) = std::fs::read_to_string(".env") else { return };
+    for line in text.lines() {
+        let line = line.trim();
+        if line.starts_with('#') {
+            continue;
+        }
+        if let Some((k, v)) = line.split_once('=') {
+            let (k, v) = (k.trim(), v.trim());
+            if !k.is_empty() && !v.is_empty() && std::env::var_os(k).is_none() {
+                std::env::set_var(k, v);
+            }
+        }
+    }
 }
 
 async fn open_store() -> Result<Store, Box<dyn std::error::Error>> {
@@ -281,8 +326,7 @@ fn text_engine(store: Store, catalog: Arc<Catalog>) -> Result<Engine, Box<dyn st
         catalog,
     )?);
 
-    let content = Arc::new(JsonlStore::new(OUT_DIR));
-    Ok(Engine::new(store, content, text).with_config(EngineConfig {
+    Ok(Engine::new(store, content_store()?, text).with_config(EngineConfig {
         concurrency: 4,
         claim_size: 16,
         stale_after: Duration::from_secs(900),
@@ -622,7 +666,7 @@ async fn cmd_compose(args: &[String]) -> R {
         catalog,
     )?);
 
-    let engine = Engine::new(store, Arc::new(JsonlStore::new(OUT_DIR)), text);
+    let engine = Engine::new(store, content_store()?, text);
     let spec = GenSpec::new(count).seed(seed);
     let session = engine.start_session(&*g, &spec).await?;
     let p = engine.run(g.clone(), &session, None).await?;
@@ -793,6 +837,147 @@ async fn cmd_photos(args: &[String]) -> R {
     println!("\nСнимков сделано: {made} · ${spent:.2}");
     println!("Дальше: forge site");
     Ok(())
+}
+
+/// Залить уже сгенерированное из `out/` в Nexorium.
+///
+/// Повторный запуск безопасен: ключ сущности в Nexorium уникален, и те, кто
+/// уже в базе, пропускаются.
+async fn cmd_upload(args: &[String]) -> R {
+    use synthforge_ports::{BatchVerdict, ContentStore, WriteOutcome};
+
+    let nx = nexorium()?.ok_or("нет доступа к Nexorium: заполните NEXORIUM_SPACE и NEXORIUM_KEY в .env")?;
+    let store = synthforge_nexorium::NexoriumStore::new(nx.clone());
+
+    const ALL: &[(&str, &str)] = &[
+        ("places", "Здания"),
+        ("programs", "Программы"),
+        ("directors", "Руководители"),
+        ("doctors", "Врачи"),
+        ("psychologists", "Психологи"),
+        ("consultants", "Консультанты"),
+        ("centers", "Центры"),
+    ];
+    let wanted: Vec<&str> = args.iter().skip(1).map(String::as_str).collect();
+
+    for (collection, title) in ALL {
+        if !wanted.is_empty() && !wanted.contains(collection) {
+            continue;
+        }
+        let records: Vec<serde_json::Value> = load_pool(collection).into_iter().map(|c| c.record).collect();
+        if records.is_empty() {
+            println!("{collection:<14} пусто");
+            continue;
+        }
+        store.ensure_collection(collection, title).await?;
+
+        let mut sent = 0usize;
+        for (i, chunk) in records.chunks(synthforge_nexorium::BULK_MAX).enumerate() {
+            let batch = format!("upload-{collection}-{i}");
+            match store.write_batch(collection, &batch, chunk).await? {
+                WriteOutcome::Committed => sent += chunk.len(),
+                WriteOutcome::Unknown => match store.verify_batch(collection, &batch, chunk.len() as u64).await? {
+                    BatchVerdict::Committed => sent += chunk.len(),
+                    other => return Err(format!("{collection}: пачка {batch} — {other:?}, запустите upload ещё раз").into()),
+                },
+            }
+        }
+        let total = store.count(collection).await?;
+        println!("{collection:<14} отправлено {sent:>4} · в Nexorium всего {total}");
+    }
+
+    if wanted.is_empty() || wanted.contains(&"photos") {
+        upload_photos(&nx).await?;
+    }
+    Ok(())
+}
+
+/// Снимки из `out/photos.json` — файлами в Nexorium, ссылками в записях.
+///
+/// Запись дополняется полем `images`: назначение снимка, идентификатор файла и
+/// адрес. Снимки, уже привязанные к записи, повторно не грузятся.
+async fn upload_photos(nx: &synthforge_nexorium::Nexorium) -> R {
+    let map = read_photo_map(&format!("{OUT_DIR}/photos.json"));
+    let cols = nx.collections().await?;
+    let (mut uploaded, mut records) = (0usize, 0usize);
+
+    for (key, shots) in map {
+        // Ключ сущности начинается с её вида: «doctor:…», «place:…».
+        let kind = key.split(':').next().unwrap_or("");
+        let Some(col) = cols.iter().find(|c| c.slug == format!("{kind}s")) else {
+            println!("  ⨯ {key}: нет коллекции для вида «{kind}»");
+            continue;
+        };
+        let Some(rec) = nx.find_one(col.id, "natural_key", &key).await? else {
+            println!("  ⨯ {key}: записи нет в Nexorium — сначала залейте записи");
+            continue;
+        };
+
+        let mut images: Vec<serde_json::Value> = rec
+            .field("images")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|i| i.get("file_id").is_some())
+            .collect();
+        let mut changed = false;
+
+        for shot in shots {
+            let role = shot.get("role").and_then(|v| v.as_str()).unwrap_or("image").to_string();
+            if images.iter().any(|i| i.get("role").and_then(|v| v.as_str()) == Some(role.as_str())) {
+                continue;
+            }
+            let Some(path) = shot.get("path").and_then(|v| v.as_str()) else { continue };
+            let bytes = match std::fs::read(path) {
+                Ok(b) => b,
+                Err(e) => {
+                    println!("  ⨯ {path}: {e}");
+                    continue;
+                }
+            };
+            // PNG от модели весит 2,5–3,6 МБ, а сервер принимает около 2 МБ.
+            // Для страниц JPEG в 5–8 раз легче без видимой потери.
+            let jpeg = to_jpeg(&bytes).map_err(|e| format!("{path}: {e}"))?;
+            let name = std::path::Path::new(path)
+                .file_stem()
+                .map(|n| format!("{}.jpg", n.to_string_lossy()))
+                .unwrap_or_else(|| format!("{role}.jpg"));
+            let resp = nx.upload_file(&name, "image/jpeg", jpeg).await?;
+            let file_id = resp
+                .pointer("/data/id")
+                .or_else(|| resp.get("id"))
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| format!("ответ загрузки без id: {resp}"))?
+                .to_string();
+            images.push(serde_json::json!({
+                "role": role,
+                "file_id": file_id,
+                "url": nx.file_url(&file_id),
+            }));
+            uploaded += 1;
+            changed = true;
+        }
+
+        if changed {
+            let mut data = rec.data.clone();
+            if let Some(o) = data.as_object_mut() {
+                o.insert("images".into(), serde_json::Value::Array(images));
+            }
+            nx.replace(col.id, rec.id, &data).await?;
+            records += 1;
+        }
+    }
+    println!("photos         загружено снимков {uploaded} · обновлено записей {records}");
+    Ok(())
+}
+
+/// Перекодировать снимок в JPEG для публикации.
+fn to_jpeg(bytes: &[u8]) -> Result<Vec<u8>, image::ImageError> {
+    let img = image::load_from_memory(bytes)?.to_rgb8();
+    let mut out = std::io::Cursor::new(Vec::new());
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, 86).encode_image(&img)?;
+    Ok(out.into_inner())
 }
 
 /// Карта снимков. Файл мог быть поправлен руками в редакторе, который пишет

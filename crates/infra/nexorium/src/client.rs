@@ -155,6 +155,40 @@ impl Nexorium {
         Ok(())
     }
 
+    // ---------------------------------------------------------------- файлы
+
+    /// Загрузить файл в пространство. Возвращает ответ сервера как есть
+    /// (идентификатор под `data.id`).
+    pub async fn upload_file(
+        &self,
+        file_name: &str,
+        mime: &str,
+        bytes: Vec<u8>,
+    ) -> Result<serde_json::Value> {
+        let url = self.url("files")?;
+        let v = self
+            .send(Idempotency::Unsafe, || {
+                let part = reqwest::multipart::Part::bytes(bytes.clone())
+                    .file_name(file_name.to_string())
+                    .mime_str(mime)
+                    .expect("mime задан кодом");
+                self.http
+                    .post(url.clone())
+                    .multipart(reqwest::multipart::Form::new().part("file", part))
+            })
+            .await?;
+        Ok(v)
+    }
+
+    /// Адрес, по которому файл отдаётся.
+    pub fn file_url(&self, file_id: &str) -> String {
+        format!(
+            "{}/spaces/{}/files/{file_id}",
+            self.cfg.base_url.as_str().trim_end_matches('/'),
+            self.cfg.space
+        )
+    }
+
     // --------------------------------------------------------------- чтение
 
     pub async fn list(&self, collection: CollectionId, q: &Query) -> Result<Page> {

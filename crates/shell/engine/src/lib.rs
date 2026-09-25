@@ -28,10 +28,12 @@ use synthforge_store::{
 mod error;
 mod images;
 mod jsonl;
+mod mirror;
 
 pub use error::{Error, Result};
 pub use images::{FsAssetStore, ImageJobPayload, ImagePipeline};
 pub use jsonl::JsonlStore;
+pub use mirror::MirrorStore;
 
 /// Как называется вид задания на текст для сущности.
 pub fn text_kind(entity_kind: &str) -> String {

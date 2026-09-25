@@ -104,6 +104,41 @@ impl ContentStore for NexoriumStore {
 
         match self.api.create_bulk(id, &stamped).await {
             Ok(_) => Ok(WriteOutcome::Committed),
+            Err(e) if e.is_unique_conflict() => {
+                // Часть сущностей уже в базе — например, пачку повторили после
+                // обрыва, или заливку запустили второй раз. Сервер отверг пачку
+                // целиком; дописываем только тех, кого в базе ещё нет.
+                let mut fresh = Vec::with_capacity(stamped.len());
+                for r in stamped {
+                    let key = r.get(crate::meta::NATURAL_KEY).and_then(|v| v.as_str());
+                    let exists = match key {
+                        Some(k) => self
+                            .api
+                            .count(id, &[(crate::meta::NATURAL_KEY.to_string(), k.to_string())])
+                            .await
+                            .map_err(to_port)?
+                            > 0,
+                        None => false,
+                    };
+                    if !exists {
+                        fresh.push(r);
+                    }
+                }
+                tracing::info!(
+                    batch = %batch_id,
+                    already = records.len() - fresh.len(),
+                    fresh = fresh.len(),
+                    "часть пачки уже в базе"
+                );
+                if fresh.is_empty() {
+                    return Ok(WriteOutcome::Committed);
+                }
+                match self.api.create_bulk(id, &fresh).await {
+                    Ok(_) => Ok(WriteOutcome::Committed),
+                    Err(e) if e.is_indeterminate() => Ok(WriteOutcome::Unknown),
+                    Err(e) => Err(to_port(e)),
+                }
+            }
             Err(e) if e.is_indeterminate() => {
                 // Обрыв или 5xx: сервер мог запрос выполнить, мог не выполнить.
                 // Повторять вслепую нельзя — это создало бы дубликаты.

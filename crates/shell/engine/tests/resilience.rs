@@ -778,3 +778,39 @@ async fn paused_session_waits_for_resume() {
     let p = engine.run(gen.clone(), &session, None).await.unwrap();
     assert_eq!(p.done, 8);
 }
+
+/// Запись в основное хранилище с локальной копией: в копию попадает ровно то,
+/// что легло в основное, — в том числе пачка, чей исход после обрыва выяснила
+/// сверка, — и ничего сверх.
+#[tokio::test]
+async fn mirror_copies_only_what_landed() {
+    for lands in [true, false] {
+        let gen: Arc<dyn Generator> = Arc::new(FakeGen::new());
+        let primary = FakeContent::default();
+        {
+            let mut st = primary.state.lock().unwrap();
+            st.unknown_next = 1;
+            st.unknown_actually_lands = lands;
+        }
+        let local = FakeContent::default();
+        let mirror = synthforge_engine::MirrorStore::new(
+            Arc::new(primary.clone()),
+            Arc::new(local.clone()),
+        );
+
+        let engine = Engine::new(store().await, Arc::new(mirror), Arc::new(FakeText::ok()))
+            .with_config(cfg());
+        let session = engine.start_session(&*gen, &GenSpec::new(30).seed(51)).await.unwrap();
+        engine.run(gen.clone(), &session, None).await.unwrap();
+
+        // Первая отправка обрывается; вторая сначала сверяет её, потом
+        // досылает, если она не легла.
+        engine.flush(&*gen, &session).await.unwrap();
+        assert!(local.records().is_empty(), "до сверки копия пуста (lands={lands})");
+        engine.flush(&*gen, &session).await.unwrap();
+        engine.flush(&*gen, &session).await.unwrap();
+
+        assert_eq!(primary.serials().len(), 30, "основное хранилище (lands={lands})");
+        assert_eq!(local.serials(), primary.serials(), "копия = основное (lands={lands})");
+    }
+}
