@@ -112,6 +112,12 @@ pub struct GenSpec {
     /// словаря идёт без них, а включаются они осознанно.
     #[serde(default)]
     pub with_images: bool,
+    /// По какому словарю спланирован прогон: `doctor` или `doctor-v2`.
+    ///
+    /// Вид сессии — это роль, а словарей у роли может быть несколько.
+    /// Продолжение после паузы должно строить промпты по тому же словарю.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dictionary: Option<String>,
 }
 
 fn default_seed() -> u64 {
@@ -129,6 +135,7 @@ impl GenSpec {
             seed: default_seed(),
             budget_usd: None,
             with_images: false,
+            dictionary: None,
         }
     }
 

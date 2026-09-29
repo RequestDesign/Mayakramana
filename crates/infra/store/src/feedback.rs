@@ -317,6 +317,46 @@ impl Store {
         .await?)
     }
 
+    /// Последние задания сессии в заданных статусах, свежие первыми.
+    ///
+    /// Для наблюдения в реальном времени: что только что готово и что ушло в
+    /// брак с какой причиной.
+    pub async fn recent_jobs(
+        &self,
+        session_id: &str,
+        statuses: &[crate::JobStatus],
+        limit: i64,
+    ) -> Result<Vec<crate::Job>> {
+        let wanted: Vec<String> = statuses
+            .iter()
+            .map(|s| format!("{s:?}").to_lowercase())
+            .collect();
+        let all = sqlx::query_as::<_, crate::Job>(
+            "select * from jobs where session_id = ?1 order by updated_at desc, id desc",
+        )
+        .bind(session_id)
+        .fetch_all(self.pool())
+        .await?;
+        Ok(all
+            .into_iter()
+            .filter(|j| wanted.contains(&format!("{:?}", j.status).to_lowercase()))
+            .take(limit.max(0) as usize)
+            .collect())
+    }
+
+    /// Средняя цена одного готового задания вида по всем прошлым прогонам —
+    /// основа оценки стоимости нового прогона. `None`, если прогонов не было.
+    pub async fn mean_cost_of_kind(&self, kind: &str) -> Result<Option<(f64, i64)>> {
+        let row = sqlx::query_as::<_, (f64, i64)>(
+            "select coalesce(sum(cost_usd), 0), count(*) from jobs
+              where kind = ?1 and status = 'done'",
+        )
+        .bind(kind)
+        .fetch_one(self.pool())
+        .await?;
+        Ok((row.1 > 0).then(|| (row.0 / row.1 as f64, row.1)))
+    }
+
     /// Задание по естественному ключу. Нужно, чтобы пометить результат, зная
     /// только его адрес в интерфейсе.
     pub async fn job_by_natural_key(&self, key: &str) -> Result<Option<crate::Job>> {

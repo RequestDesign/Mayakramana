@@ -6,190 +6,761 @@
 <meta name="robots" content="noindex, nofollow">
 <title>synthforge — панель</title>
 <style>
-  :root { --bg:#f6f5f2; --card:#fff; --ink:#1d1d1b; --muted:#6b6b66; --line:#e3e1dc;
-          --ok:#2f7d4f; --bad:#b3403a; --accent:#34568b; }
+  :root {
+    color-scheme: light;
+    --bg: #f4f3ef; --surface-1: #fcfcfb; --line: #e1e0d9; --line-strong: #cfcdc4;
+    --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #7a7973;
+    --series-1: #2a78d6; --accent-soft: #e6effa;
+    --good: #0ca30c; --warning: #b27a00; --critical: #d03b3b;
+    --radius: 8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --bg: #121211; --surface-1: #1a1a19; --line: #2c2c2a; --line-strong: #3a3a37;
+      --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+      --series-1: #3987e5; --accent-soft: #1d2a3b;
+      --good: #0ca30c; --warning: #fab219; --critical: #e66767;
+    }
+  }
   * { box-sizing: border-box; }
-  body { margin:0; font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--ink); }
-  header { padding:14px 24px; border-bottom:1px solid var(--line); background:var(--card); display:flex; gap:16px; align-items:baseline; }
-  header h1 { font-size:18px; margin:0; }
-  header .note { color:var(--muted); font-size:13px; }
-  main { padding:20px 24px; max-width:1200px; margin:0 auto; }
-  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); }
-  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); font-size:14px; vertical-align:middle; }
-  th { color:var(--muted); font-weight:500; }
-  tr.row:hover { background:#faf9f6; cursor:pointer; }
-  .bar { width:140px; height:8px; background:var(--line); border-radius:4px; overflow:hidden; display:inline-block; vertical-align:middle; }
-  .bar i { display:block; height:100%; background:var(--accent); }
-  .st { font-size:12px; padding:2px 8px; border-radius:10px; background:var(--line); }
-  .st.running { background:#dfe8f5; } .st.paused { background:#f6e8cf; } .st.done { background:#dcefe3; } .st.failed { background:#f4dcda; }
-  button { font:inherit; font-size:13px; padding:4px 10px; border:1px solid var(--line); background:var(--card); border-radius:6px; cursor:pointer; }
-  button:hover { border-color:var(--muted); }
-  button.good { color:var(--ok); border-color:var(--ok); } button.bad { color:var(--bad); border-color:var(--bad); }
-  .back { margin-bottom:14px; }
-  .summary { display:flex; gap:24px; flex-wrap:wrap; background:var(--card); border:1px solid var(--line); padding:12px 16px; margin-bottom:16px; }
-  .summary b { display:block; font-size:20px; }
-  .summary span { color:var(--muted); font-size:13px; }
-  .cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(360px, 1fr)); gap:14px; }
-  .card { background:var(--card); border:1px solid var(--line); padding:14px 16px; display:flex; flex-direction:column; gap:8px; }
-  .card h3 { margin:0; font-size:16px; } .card .sub { color:var(--muted); font-size:13px; }
-  .card img { width:100%; max-height:260px; object-fit:cover; border-radius:4px; }
-  .card .text { font-size:14px; white-space:pre-wrap; }
-  .card .text em { color:var(--muted); font-style:normal; font-size:12px; display:block; }
-  .mark { display:flex; gap:6px; flex-wrap:wrap; align-items:center; border-top:1px solid var(--line); padding-top:8px; }
-  .mark input { font:inherit; font-size:13px; padding:4px 6px; border:1px solid var(--line); border-radius:6px; flex:1; min-width:120px; }
-  .marked { font-size:13px; }
-  .marked.good { color:var(--ok); } .marked.bad { color:var(--bad); }
-  .muted { color:var(--muted); }
-  #toast { position:fixed; bottom:16px; right:16px; background:var(--ink); color:#fff; padding:8px 14px; border-radius:6px; display:none; font-size:14px; }
+  body { margin: 0; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text-primary); }
+  header { display: flex; align-items: center; gap: 24px; padding: 0 24px; background: var(--surface-1); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  header .brand { font-weight: 600; font-size: 16px; padding: 14px 0; }
+  nav { display: flex; gap: 2px; }
+  nav a { padding: 15px 12px; color: var(--text-secondary); text-decoration: none; border-bottom: 2px solid transparent; }
+  nav a.on { color: var(--text-primary); border-bottom-color: var(--series-1); }
+  header .note { margin-left: auto; color: var(--text-muted); font-size: 12px; }
+  main { padding: 20px 24px 60px; max-width: 1320px; margin: 0 auto; }
+  h2 { font-size: 20px; margin: 4px 0 14px; } h3 { font-size: 15px; margin: 18px 0 8px; }
+  .muted { color: var(--text-muted); } .sec { color: var(--text-secondary); }
+  .card { background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+  .grid { display: grid; gap: 14px; }
+  .g2 { grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); }
+  .g3 { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  table { width: 100%; border-collapse: collapse; background: var(--surface-1); }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--text-muted); font-weight: 500; font-size: 12px; white-space: nowrap; }
+  tr.click:hover { background: var(--accent-soft); cursor: pointer; }
+  .wrap { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  button, .btn { font: inherit; padding: 6px 12px; border: 1px solid var(--line-strong); background: var(--surface-1); color: var(--text-primary); border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-block; }
+  button:hover, .btn:hover { border-color: var(--text-secondary); }
+  button.primary { background: var(--series-1); border-color: var(--series-1); color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  input, select, textarea { font: inherit; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface-1); color: var(--text-primary); }
+  textarea { width: 100%; min-height: 70px; resize: vertical; }
+  label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-secondary); }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+  .hint { font-size: 12px; color: var(--text-muted); }
+  .badge { font-size: 12px; padding: 1px 8px; border-radius: 10px; border: 1px solid var(--line-strong); white-space: nowrap; }
+  .st-running { border-color: var(--series-1); color: var(--series-1); }
+  .st-paused { border-color: var(--warning); color: var(--warning); }
+  .st-done { border-color: var(--good); color: var(--good); }
+  .st-failed { border-color: var(--critical); color: var(--critical); }
+  .ok { color: var(--good); } .bad { color: var(--critical); } .warn { color: var(--warning); }
+  .progress { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; min-width: 120px; }
+  .progress i { display: block; height: 100%; background: var(--series-1); border-radius: 0 4px 4px 0; }
+  .stats { display: flex; gap: 28px; flex-wrap: wrap; }
+  .stats div b { display: block; font-size: 20px; font-weight: 600; }
+  .stats div span { color: var(--text-muted); font-size: 12px; }
+  .tabs { display: flex; gap: 4px; margin: 16px 0 12px; border-bottom: 1px solid var(--line); }
+  .tabs a { padding: 8px 12px; color: var(--text-secondary); text-decoration: none; border-bottom: 2px solid transparent; cursor: pointer; }
+  .tabs a.on { color: var(--text-primary); border-bottom-color: var(--series-1); }
+  .rec h4 { margin: 0; font-size: 15px; }
+  .rec .text { white-space: pre-wrap; margin-top: 6px; }
+  .rec .text em { display: block; font-style: normal; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+  .shots { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .shot { width: 150px; } .shot img { width: 150px; height: 200px; object-fit: cover; border-radius: 6px; display: block; }
+  .shot .m { display: flex; gap: 4px; margin-top: 4px; align-items: center; font-size: 12px; }
+  .mark { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+  .mark input { flex: 1; min-width: 140px; }
+  .verdict { font-size: 12px; }
+  details summary { cursor: pointer; color: var(--text-secondary); }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; font-size: 13px; }
+  .kv dt { color: var(--text-muted); } .kv dd { margin: 0; }
+  code, .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  /* ---- графики распределений: один ряд, один оттенок ---- */
+  .dist h4 { margin: 0 0 2px; font-size: 14px; }
+  .bars { display: grid; grid-template-columns: minmax(90px, 40%) 1fr max-content; gap: 4px 8px; align-items: center; font-size: 12px; margin-top: 8px; }
+  .bars .lab { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bars .track { height: 10px; }
+  .bars .fill { height: 10px; background: var(--series-1); border-radius: 0 4px 4px 0; min-width: 2px; }
+  .bars .val { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+  .hist { display: flex; align-items: flex-end; gap: 2px; height: 70px; margin-top: 10px; border-bottom: 1px solid var(--line-strong); }
+  .hist div { flex: 1; background: var(--series-1); border-radius: 4px 4px 0 0; min-height: 1px; }
+  .hist div:hover, .bars .fill:hover { opacity: .8; }
+  .axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .cond { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 4px 0; }
+  .cohort { border: 1px dashed var(--line-strong); border-radius: 6px; padding: 8px 10px; margin: 8px 0; }
+  #toast { position: fixed; bottom: 18px; right: 18px; background: var(--text-primary); color: var(--surface-1); padding: 9px 14px; border-radius: 6px; display: none; max-width: 520px; z-index: 20; }
+  iframe.site { width: 100%; height: 75vh; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
+  .err { color: var(--critical); white-space: pre-wrap; }
+  a { color: var(--series-1); }
+  table.dict { table-layout: fixed; }
+  table.dict col.c1 { width: 20%; } table.dict col.c2 { width: 27%; } table.dict col.c3 { width: 11%; } table.dict col.c4 { width: 20%; }
 </style>
 </head>
 <body>
 <header>
-  <h1>synthforge</h1>
-  <span class="note">панель прогонов · только для внутреннего просмотра</span>
+  <div class="brand">synthforge</div>
+  <nav id="nav">
+    <a href="#/runs" data-r="runs">Прогоны</a>
+    <a href="#/new" data-r="new">Новый прогон</a>
+    <a href="#/dict" data-r="dict">Невидимый слой</a>
+    <a href="#/site" data-r="site">Демо-страницы</a>
+    <a href="#/storage" data-r="storage">Хранилище</a>
+  </nav>
+  <span class="note">внутренняя панель · данные синтетические</span>
 </header>
 <main id="app"></main>
 <div id="toast"></div>
 <script>
+'use strict';
 const $app = document.getElementById('app');
-let timer = null;
+let timers = [];
+let tabTimer = null;
+const stopTimers = () => { timers.forEach(clearInterval); timers = []; clearInterval(tabTimer); tabTimer = null; };
+const every = (ms, fn) => timers.push(setInterval(fn, ms));
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pct = (x, d = 0) => (x * 100).toFixed(d) + '%';
+const money = v => v == null ? '—' : '$' + Number(v).toFixed(v >= 10 ? 2 : 4);
+const when = ms => ms ? new Date(ms).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+const dur = s => s == null ? '—' : s < 90 ? Math.round(s) + ' с' : s < 5400 ? Math.round(s / 60) + ' мин' : (s / 3600).toFixed(1) + ' ч';
+const num = v => typeof v === 'number' ? (Number.isInteger(v) ? v : v.toFixed(1)) : esc(v);
 
 async function api(tool, args = {}) {
-  const r = await fetch('/api/' + tool, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(args) });
-  const j = await r.json();
+  const r = await fetch('/api/' + tool, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(args) });
+  let j; try { j = await r.json(); } catch { throw new Error('панель не ответила (' + r.status + ')'); }
   if (!r.ok) throw new Error(j.error || r.status);
   return j.data;
 }
-
-function toast(msg) {
+function toast(msg, ms = 3500) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.style.display = 'block';
-  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2500);
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', ms);
 }
+const statusBadge = s => `<span class="badge st-${esc(s)}">${esc({ running: 'идёт', paused: 'пауза', done: 'готово', failed: 'сбой', pending: 'ждёт', planning: 'планируется' }[s] || s)}</span>`;
+const progress = p => `<div class="progress" title="${p.toFixed(0)}%"><i style="width:${Math.min(100, p)}%"></i></div>`;
 
-const bar = p => `<span class="bar"><i style="width:${Math.min(100, p)}%"></i></span> ${p.toFixed(0)}%`;
-const money = v => v == null ? '—' : '$' + Number(v).toFixed(4);
+// ================================================================ прогоны
 
-// ------------------------------------------------------------- список прогонов
+const kindName = (ks, k) => (ks.find(x => x.kind === k) || {}).what || k;
 
-async function showSessions() {
-  clearInterval(timer);
+async function pageRuns() {
+  const ks = await kinds().catch(() => []);
+  $app.innerHTML = `<h2>Прогоны</h2><div id="runs" class="wrap"><p class="muted" style="padding:12px">Загрузка…</p></div>`;
   const render = async () => {
-    let data;
-    try { data = await api('sessions'); } catch (e) { $app.innerHTML = `<p>Ошибка: ${esc(e.message)}</p>`; return; }
-    const rows = data.sessions.slice().reverse().map(s => `
-      <tr class="row" data-id="${esc(s.session)}">
-        <td>${esc(s.kind)}</td>
-        <td><span class="st ${esc(s.status)}">${esc(s.status)}</span></td>
-        <td>${bar(s.percent)}</td>
+    let d; try { d = await api('sessions'); } catch (e) { document.getElementById('runs').innerHTML = `<p class="err" style="padding:12px">${esc(e.message)}</p>`; return; }
+    const list = d.sessions.slice().sort((a, b) => b.created_at - a.created_at);
+    if (!list.length) { document.getElementById('runs').innerHTML = '<p class="muted" style="padding:12px">Прогонов пока не было. Запустите первый в разделе «Новый прогон».</p>'; return; }
+    document.getElementById('runs').innerHTML = `<table>
+      <tr><th>Запущен</th><th>Вид / словарь</th><th>Статус</th><th>Готово</th><th></th><th>Брак</th><th>Режим</th><th>Вводная</th><th>Потрачено / бюджет</th><th></th></tr>
+      ${list.map(s => `<tr class="click" data-open="${esc(s.session)}">
+        <td class="muted">${when(s.created_at)}</td>
+        <td>${esc(kindName(ks, s.dictionary))}${s.with_images ? ' <span class="muted">+ снимки</span>' : ''}</td>
+        <td>${statusBadge(s.status)}</td>
+        <td>${s.done} из ${s.count ?? '—'}</td>
+        <td>${progress(s.percent)}</td>
+        <td class="${s.dead ? 'bad' : 'muted'}">${s.dead}</td>
+        <td class="sec">${esc(s.mode)}</td>
+        <td class="sec" style="max-width:260px">${esc((s.brief || '').slice(0, 90))}${(s.brief || '').length > 90 ? '…' : ''}</td>
         <td>${money(s.spent_usd)} / ${money(s.budget_usd)}</td>
-        <td class="muted">${esc(s.session.slice(0, 8))}</td>
-        <td>${s.status === 'paused'
-              ? `<button data-act="resume" data-id="${esc(s.session)}">Продолжить</button>`
-              : s.status === 'running' ? `<button data-act="pause" data-id="${esc(s.session)}">Пауза</button>` : ''}</td>
-      </tr>`).join('');
-    $app.innerHTML = data.sessions.length
-      ? `<table><tr><th>Вид</th><th>Статус</th><th>Готово</th><th>Потрачено / бюджет</th><th>Сессия</th><th></th></tr>${rows}</table>`
-      : '<p class="muted">Прогонов пока не было.</p>';
+        <td>${s.status === 'running' ? `<button data-act="pause" data-id="${esc(s.session)}">Пауза</button>` :
+              s.status === 'paused' ? `<button data-act="resume" data-id="${esc(s.session)}">Продолжить</button>` : ''}</td>
+      </tr>`).join('')}</table>`;
   };
   await render();
-  timer = setInterval(render, 4000);
+  every(4000, render);
 }
 
-// ------------------------------------------------------------------ сессия
+// ============================================================ новый прогон
 
-const TITLE = ['full_name', 'center_name', 'title'];
-const SUB = ['specialty', 'path_to_work', 'education', 'background', 'building_type', 'focus', 'segment'];
-const TEXTS = [['biography','Биография'], ['professional_path','Путь'], ['quote','Цитата'],
-               ['about','О центре'], ['approach_text','Подход'], ['history','История'],
-               ['description','Описание'], ['territory','Территория'], ['rooms','Комнаты'], ['stages','Этапы']];
+let KINDS = null;
+const DICT_CACHE = {};
+async function kinds() { return KINDS ??= (await api('kinds')).kinds; }
+async function dict(kind) { return DICT_CACHE[kind] ??= await api('dictionary', { kind }); }
 
-function card(r) {
-  const title = TITLE.map(k => r[k]).find(Boolean) || r.natural_key;
-  const sub = [r.age ? r.age + ' лет' : null, SUB.map(k => r[k]).find(Boolean)].filter(Boolean).join(' · ');
-  const imgs = (r.images || []).filter(i => i.path).map(i =>
-    `<img src="/file?path=${encodeURIComponent(i.path)}" alt="${esc(i.role)}" loading="lazy">`).join('');
-  const texts = TEXTS.filter(([k]) => r[k]).map(([k, label]) =>
-    `<div class="text"><em>${label}</em>${esc(Array.isArray(r[k]) ? r[k].join('\n') : r[k])}</div>`).join('');
-  return `<div class="card" data-key="${esc(r.natural_key)}">
-    <h3>${esc(title)}</h3><div class="sub">${esc(sub)}</div>${imgs}${texts}
-    <div class="mark">
-      <button class="good" data-verdict="good">Принять</button>
-      <input placeholder="метки через запятую: штамп, анкета, факты" data-f="tags">
-      <input placeholder="комментарий" data-f="comment">
-      <button class="bad" data-verdict="bad">Брак</button>
-      <span class="marked"></span>
-    </div></div>`;
+const domainKind = p => p.domain.kind;
+const pickable = p => ['int', 'float', 'bool', 'enum', 'multi_enum'].includes(domainKind(p));
+
+function condRow(params, c = {}) {
+  const opts = params.filter(pickable).map(p => `<option value="${esc(p.key)}" ${c.param === p.key ? 'selected' : ''}>${esc(p.title)} (${esc(p.key)})</option>`).join('');
+  return `<div class="cond" data-cond>
+    <select data-k="param"><option value="">— параметр —</option>${opts}</select>
+    <span data-k="body"></span>
+    <button type="button" data-del-cond title="убрать условие">✕</button></div>`;
+}
+function condBody(p) {
+  if (!p) return '';
+  const k = domainKind(p);
+  if (k === 'int' || k === 'float') {
+    return `от <input data-k="min" type="number" style="width:80px" placeholder="${p.domain.min}"> до <input data-k="max" type="number" style="width:80px" placeholder="${p.domain.max}"> <span class="hint">диапазон ${p.domain.min}–${p.domain.max}</span>`;
+  }
+  if (k === 'bool') {
+    return `<select data-k="force"><option value="true">да</option><option value="false">нет</option></select>`;
+  }
+  const vs = p.domain.variants.map(v => `<option>${esc(v.value)}</option>`).join('');
+  return `<select data-k="value">${vs}</select>
+    <select data-k="how">${k === 'enum' ? '<option value="force">только это значение</option>' : ''}<option value="weight">чаще, ×</option><option value="never">исключить</option></select>
+    <input data-k="factor" type="number" value="3" step="0.5" min="0.1" style="width:64px">`;
+}
+function readConds(box, params) {
+  const out = [];
+  for (const row of box.querySelectorAll('[data-cond]')) {
+    const key = row.querySelector('[data-k=param]').value;
+    const p = params.find(x => x.key === key);
+    if (!p) continue;
+    const k = domainKind(p);
+    const g = s => row.querySelector(`[data-k=${s}]`);
+    if (k === 'int' || k === 'float') {
+      const b = { kind: 'range', param: key };
+      if (g('min').value !== '') b.min = Number(g('min').value);
+      if (g('max').value !== '') b.max = Number(g('max').value);
+      if (b.min == null && b.max == null) throw new Error(`«${p.title}»: задайте хотя бы одну границу`);
+      if (b.min != null && b.max != null && b.min > b.max) throw new Error(`«${p.title}»: нижняя граница больше верхней`);
+      out.push(b);
+    } else if (k === 'bool') {
+      out.push({ kind: 'force', param: key, value: g('force').value === 'true' });
+    } else {
+      const how = g('how').value, value = g('value').value;
+      if (how === 'force') out.push({ kind: 'force', param: key, value });
+      else if (how === 'never') out.push({ kind: 'weight', param: key, value, factor: 0 });
+      else out.push({ kind: 'weight', param: key, value, factor: Math.max(0.1, Number(g('factor').value) || 1) });
+    }
+  }
+  return out;
 }
 
-async function showSession(id) {
-  clearInterval(timer);
-  $app.innerHTML = `<button class="back">← все прогоны</button><div id="sum"></div><div class="cards" id="cards"><p class="muted">Загрузка…</p></div>`;
-  $app.querySelector('.back').onclick = showSessions;
+async function pageNew() {
+  const ks = await kinds();
+  const opt = k => `<option value="${esc(k.kind)}">${esc(k.what)}${k.draft ? ' — черновик' : ''} · в пуле ${k.in_pool}</option>`;
+  $app.innerHTML = `<h2>Новый прогон</h2>
+  <div class="grid" style="grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items:start">
+    <form class="card" id="f" autocomplete="off">
+      <div class="row">
+        <label class="f" style="flex:1; min-width:260px">Что генерировать
+          <select name="kind"><optgroup label="Рабочие модели">${ks.filter(k => !k.draft).map(opt).join('')}</optgroup>
+          <optgroup label="Модели v2 на согласовании">${ks.filter(k => k.draft).map(opt).join('')}</optgroup></select></label>
+        <label class="f">Сколько <input name="count" type="number" min="1" max="2000" value="5" style="width:100px"></label>
+        <label class="f">Сид <input name="seed" type="number" value="${Math.floor(Math.random() * 90000) + 10000}" style="width:110px"></label>
+      </div>
+      <p class="hint">1 — одиночная генерация, больше — пакет. Один сид при той же постановке даёт тех же людей: так прогон можно повторить.</p>
+      <p class="hint" id="kindnote"></p>
 
-  const renderSummary = async () => {
+      <h3>Вводная</h3>
+      <textarea name="brief" placeholder="Например: консультанты с опытом от 7 лет и сложной историей выздоровления. Подсказка для текста — факты задают условия ниже."></textarea>
+
+      <h3>Режим</h3>
+      <div class="row">
+        <label><input type="radio" name="mode" value="random" checked> случайно</label>
+        <label><input type="radio" name="mode" value="unique"> уникально относительно базы</label>
+      </div>
+      <div class="row" id="uniq" style="display:none; margin-top:8px">
+        <label class="f">Порог совпадения оборотов, % <input name="threshold" type="number" min="5" max="95" value="25" style="width:90px"></label>
+        <label class="f">С чем сравнивать <select name="scope"><option value="collection">со всей базой этого вида</option><option value="session">только внутри прогона</option></select></label>
+        <label class="f">Попыток перегенерации <input name="retries" type="number" min="1" max="10" value="3" style="width:80px"></label>
+      </div>
+      <p class="hint" id="uniqhint" style="display:none">Текст, у которого с уже принятым общих оборотов больше порога, перегенерируется. Сейчас медиана совпадений — около 3%, порог 25% ловит только настоящие копии.</p>
+
+      <h3>Условия для всех <span class="hint">— жёсткие, проверяются кодом</span></h3>
+      <div id="conds"></div>
+      <button type="button" id="addCond">+ условие</button>
+
+      <h3>Когорты <span class="hint">— «20% таких, 30% таких», раскладываются точно</span></h3>
+      <div id="cohorts"></div>
+      <button type="button" id="addCohort">+ когорта</button>
+      <p class="hint">Остаток до 100% станет когортой «остальные» без условий.</p>
+
+      <h3>Снимки</h3>
+      <label><input type="checkbox" name="images"> делать снимки (портреты, фото дома) — на порядки дороже текста</label>
+
+      <h3>Бюджет</h3>
+      <div class="row">
+        <label class="f">Потолок расхода, $ <input name="budget" type="number" min="0.01" step="0.01" value="0.10" style="width:120px"></label>
+        <div id="est" class="sec"></div>
+      </div>
+      <p class="hint">Прогон встанет на паузу, как только расход дойдёт до потолка.</p>
+
+      <div class="row" style="margin-top:16px">
+        <button type="button" id="btnPlan">План — бесплатно</button>
+        <button type="button" id="btnDist">Распределение — бесплатно</button>
+        <button type="submit" class="primary">Запустить</button>
+      </div>
+      <div id="formerr" class="err"></div>
+    </form>
+    <div id="side"><div class="card"><p class="sec">План показывает, какими будут первые сущности, — модель не вызывается. Распределение — как лягут параметры по всей выборке с учётом условий и когорт.</p></div></div>
+  </div>`;
+
+  const f = document.getElementById('f');
+  const side = document.getElementById('side');
+  let params = [];
+
+  const loadKind = async () => {
+    const kind = f.kind.value;
+    const k = ks.find(x => x.kind === kind);
+    document.getElementById('kindnote').textContent = kind === 'center'
+      ? 'Центр собирается только из готовых записей: здание, программа, руководитель и команда берутся из пулов, никто не попадает в два центра.'
+      : (k.draft ? 'Черновик модели v2: пишется в те же коллекции, что и рабочая модель.' : '');
+    try { params = (await dict(kind)).params; } catch { params = []; }
+    document.getElementById('conds').innerHTML = '';
+    document.getElementById('cohorts').innerHTML = '';
+    estimate();
+  };
+  const estimate = async () => {
+    const box = document.getElementById('est');
     try {
-      const [p, f] = await Promise.all([api('progress', { session: id }), api('feedback', { session: id })]);
-      const sys = (f.systemic || []).length ? ` · системные дефекты: ${f.systemic.map(esc).join(', ')}` : '';
-      document.getElementById('sum').innerHTML = `<div class="summary">
-        <div><b>${p.percent.toFixed(0)}%</b><span>готово</span></div>
-        <div><b>${p.done}</b><span>принято моделью</span></div>
-        <div><b>${p.dead}</b><span>брак приёмки</span></div>
-        <div><b>${p.pending + p.running}</b><span>в очереди</span></div>
-        <div><b>${money(p.spent_usd)}</b><span>из ${money(p.budget_usd)}</span></div>
-        <div><b>${f.good} / ${f.bad}</b><span>пометки: принято / брак${sys}</span></div>
-        <div>${p.status === 'paused'
-            ? `<button id="toggle" data-act="resume">Продолжить</button>`
-            : p.status === 'running' ? `<button id="toggle" data-act="pause">Пауза</button>` : `<span class="st ${esc(p.status)}">${esc(p.status)}</span>`}</div>
-      </div>`;
-      const t = document.getElementById('toggle');
-      if (t) t.onclick = () => act(t.dataset.act, id).then(renderSummary);
-    } catch (e) { document.getElementById('sum').textContent = 'Ошибка: ' + e.message; }
+      const e = await api('estimate', { kind: f.kind.value, count: Number(f.count.value) || 1, with_images: f.images.checked });
+      box.innerHTML = `оценка ≈ <b>${money(e.total_usd)}</b> · ${money(e.per_entity_usd)} за штуку<br><span class="hint">${esc(e.basis)}${e.images_note ? '; ' + esc(e.images_note) : ''}</span>`;
+      const suggested = Math.max(0.05, Math.ceil(e.total_usd * 1.5 * 100) / 100);
+      if (!f.budget.dataset.touched) f.budget.value = suggested.toFixed(2);
+    } catch (err) { box.textContent = err.message; }
   };
 
-  await renderSummary();
-  timer = setInterval(renderSummary, 4000);
+  const spec = () => {
+    const a = {
+      kind: f.kind.value, count: Number(f.count.value), seed: Number(f.seed.value),
+      brief: f.brief.value.trim() || undefined, with_images: f.images.checked,
+    };
+    if (f.mode.value === 'unique') {
+      a.mode = 'unique'; a.unique_threshold = Number(f.threshold.value) / 100;
+      a.unique_scope = f.scope.value; a.max_retries = Number(f.retries.value);
+    }
+    const conds = readConds(document.getElementById('conds'), params);
+    if (conds.length) a.constraints = conds;
+    const cohorts = [];
+    for (const c of document.querySelectorAll('[data-cohort]')) {
+      const share = Number(c.querySelector('[data-k=share]').value) / 100;
+      const name = c.querySelector('[data-k=name]').value.trim() || 'когорта ' + (cohorts.length + 1);
+      if (!(share > 0)) throw new Error(`когорта «${name}»: доля должна быть больше нуля`);
+      cohorts.push({ name, share, biases: readConds(c, params) });
+    }
+    if (cohorts.length) {
+      const total = cohorts.reduce((s, c) => s + c.share, 0);
+      if (total > 1.0001) throw new Error(`доли когорт в сумме ${Math.round(total * 100)}% — больше 100%`);
+      if (total < 0.9999) cohorts.push({ name: 'остальные', share: 1 - total, biases: [] });
+      a.cohorts = cohorts;
+    }
+    return a;
+  };
 
-  try {
-    const d = await api('show', { session: id, limit: 50 });
-    document.getElementById('cards').innerHTML = d.records.length
-      ? d.records.map(card).join('')
-      : '<p class="muted">Готовых записей этой сессии пока нет.</p>';
-  } catch (e) { document.getElementById('cards').textContent = 'Ошибка: ' + e.message; }
-}
+  f.kind.onchange = loadKind;
+  f.count.oninput = estimate;
+  f.images.onchange = estimate;
+  f.budget.oninput = () => f.budget.dataset.touched = '1';
+  f.addEventListener('change', ev => {
+    if (ev.target.name === 'mode') {
+      const u = f.mode.value === 'unique';
+      document.getElementById('uniq').style.display = u ? 'flex' : 'none';
+      document.getElementById('uniqhint').style.display = u ? 'block' : 'none';
+    }
+    if (ev.target.dataset.k === 'param') {
+      const row = ev.target.closest('[data-cond]');
+      row.querySelector('[data-k=body]').innerHTML = condBody(params.find(p => p.key === ev.target.value));
+    }
+  });
+  f.addEventListener('click', ev => {
+    if (ev.target.matches('[data-del-cond]')) ev.target.closest('[data-cond]').remove();
+    if (ev.target.matches('[data-del-cohort]')) ev.target.closest('[data-cohort]').remove();
+    if (ev.target.matches('[data-add-cond]')) ev.target.insertAdjacentHTML('beforebegin', condRow(params));
+  });
+  document.getElementById('addCond').onclick = () => document.getElementById('conds').insertAdjacentHTML('beforeend', condRow(params));
+  document.getElementById('addCohort').onclick = () => document.getElementById('cohorts').insertAdjacentHTML('beforeend',
+    `<div class="cohort" data-cohort><div class="row">
+      <label class="f">Название <input data-k="name" placeholder="например, опытные"></label>
+      <label class="f">Доля, % <input data-k="share" type="number" min="1" max="100" value="20" style="width:80px"></label>
+      <button type="button" data-del-cohort>убрать когорту</button></div>
+      <button type="button" data-add-cond style="margin-top:6px">+ условие когорты</button></div>`);
 
-async function act(what, id) {
-  try { await api(what, { session: id }); toast(what === 'pause' ? 'Пауза: встанет после текущей пачки' : 'Продолжено'); }
-  catch (e) { toast('Ошибка: ' + e.message); }
-}
-
-// ----------------------------------------------------------------- события
-
-$app.addEventListener('click', async ev => {
-  const b = ev.target.closest('button');
-  const row = ev.target.closest('tr.row');
-  if (b && b.dataset.act) { ev.stopPropagation(); await act(b.dataset.act, b.dataset.id); return; }
-  if (b && b.dataset.verdict) {
-    const c = b.closest('.card');
-    const val = f => c.querySelector(`[data-f="${f}"]`).value.trim();
-    const tags = val('tags').split(',').map(s => s.trim()).filter(Boolean);
-    const session = location.hash.slice(1);
+  const fail = e => { document.getElementById('formerr').textContent = e.message; };
+  document.getElementById('btnPlan').onclick = async () => {
+    document.getElementById('formerr').textContent = '';
     try {
-      await api('mark', { session, entity_key: c.dataset.key, verdict: b.dataset.verdict, tags, comment: val('comment') || undefined });
-      const m = c.querySelector('.marked');
-      m.className = 'marked ' + b.dataset.verdict;
-      m.textContent = b.dataset.verdict === 'good' ? '✓ принято' : '✗ брак' + (tags.length ? ': ' + tags.join(', ') : '');
-    } catch (e) { toast(e.message); }
+      const a = spec(); a.count = Math.min(a.count, 5);
+      side.innerHTML = '<div class="card muted">Планирую…</div>';
+      const d = await api('plan', a);
+      side.innerHTML = `<div class="card"><h3 style="margin-top:0">Первые ${d.rows.length} по плану</h3>
+        <p class="hint">Модель не вызывалась: к этому моменту уже решено, каким будет каждый.</p>
+        ${d.rows.map(r => `<details style="margin:6px 0"><summary><b>${esc(r.full_name || r.center_name || r.title || r.building_type || r.focus || 'запись')}</b>
+          ${r.age ? ' · ' + esc(r.age) + ' лет' : ''}${r.specialty ? ' · ' + esc(r.specialty) : ''}</summary>
+          <dl class="kv">${Object.entries(r).filter(([, v]) => v !== null && v !== '' && !(Array.isArray(v) && !v.length)).map(([k, v]) => {
+            const p = params.find(x => x.key === k);
+            return `<dt>${esc(p ? p.title : k)}</dt><dd>${esc(Array.isArray(v) ? v.join(', ') : v === true ? 'да' : v === false ? 'нет' : v)}</dd>`;
+          }).join('')}</dl></details>`).join('')}</div>`;
+    } catch (e) { fail(e); side.innerHTML = ''; }
+  };
+  document.getElementById('btnDist').onclick = async () => {
+    document.getElementById('formerr').textContent = '';
+    try {
+      const a = spec(); a.sample = 500;
+      side.innerHTML = '<div class="card muted">Считаю распределение на 500…</div>';
+      const d = await api('distribution', a);
+      side.innerHTML = `<div class="card"><h3 style="margin-top:0">Распределение на ${d.sample} с учётом условий</h3></div>
+        <div class="grid" style="margin-top:10px">${d.params.filter(p => p.usage !== 'visual').map(distCard).join('')}</div>`;
+    } catch (e) { fail(e); side.innerHTML = ''; }
+  };
+  f.onsubmit = async ev => {
+    ev.preventDefault();
+    document.getElementById('formerr').textContent = '';
+    try {
+      const a = spec();
+      a.budget_usd = Number(f.budget.value);
+      if (!(a.budget_usd > 0)) throw new Error('задайте бюджет больше нуля');
+      if (!(a.count >= 1)) throw new Error('количество — от 1');
+      const k = ks.find(x => x.kind === a.kind);
+      const lines = [
+        `${k.what}: ${a.count} шт.`,
+        `Режим: ${a.mode === 'unique' ? `уникально, порог ${Math.round(a.unique_threshold * 100)}%` : 'случайно'}`,
+        a.brief ? `Вводная: ${a.brief.slice(0, 120)}` : 'Без вводной',
+        a.constraints ? `Условий: ${a.constraints.length}` : '',
+        a.cohorts ? `Когорты: ${a.cohorts.map(c => `${c.name} ${Math.round(c.share * 100)}%`).join(', ')}` : '',
+        a.with_images ? 'Со снимками' : 'Без снимков',
+        `Бюджет: $${a.budget_usd.toFixed(2)}`,
+        '', 'Запустить? Это тратит деньги.'];
+      if (!confirm(lines.filter(Boolean).join('\n'))) return;
+      const r = await api('run', a);
+      toast('Прогон запущен');
+      location.hash = '#/session/' + r.session;
+    } catch (e) { fail(e); }
+  };
+  await loadKind();
+}
+
+// ================================================================ сессия
+
+async function pageSession(id, tab = 'cards') {
+  $app.innerHTML = `<p><a href="#/runs">← все прогоны</a></p><div id="head"></div>
+    <div class="tabs" id="stabs">
+      <a data-t="cards">Карточки</a><a data-t="feed">Лента в реальном времени</a><a data-t="quality">Качество и пометки</a>
+    </div><div id="body"></div>`;
+  const setTab = t => {
+    tab = t;
+    history.replaceState(null, '', '#/session/' + id + '/' + t);
+    clearInterval(tabTimer); tabTimer = null;
+    document.querySelectorAll('#stabs a').forEach(a => a.classList.toggle('on', a.dataset.t === t));
+    ({ cards: tabCards, feed: tabFeed, quality: tabQuality })[t](id);
+  };
+  document.getElementById('stabs').onclick = ev => { if (ev.target.dataset.t) setTab(ev.target.dataset.t); };
+
+  const head = async () => {
+    let p; try { p = await api('progress', { session: id }); } catch (e) { document.getElementById('head').innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+    const cond = [
+      p.constraints?.length ? `условий: ${p.constraints.length}` : '',
+      p.cohorts?.length ? 'когорты: ' + p.cohorts.map(c => `${esc(c.name)} ${Math.round(c.share * 100)}%`).join(', ') : '',
+    ].filter(Boolean).join(' · ');
+    document.getElementById('head').innerHTML = `<div class="card">
+      <div class="row" style="justify-content:space-between; align-items:center">
+        <h2 style="margin:0">${esc(kindName(await kinds().catch(() => []), p.dictionary))} ${statusBadge(p.status)}</h2>
+        <div>${p.status === 'running' ? `<button data-act="pause" data-id="${esc(id)}">Пауза</button>` :
+              p.status === 'paused' ? `<button data-act="resume" data-id="${esc(id)}">Продолжить</button>` : ''}</div>
+      </div>
+      <p class="sec" style="margin:6px 0 12px">${esc(p.mode)}${p.with_images ? ' · со снимками' : ''} · сид ${esc(p.seed)} · запущен ${when(p.created_at)}${cond ? ' · ' + cond : ''}
+        ${p.brief ? `<br>Вводная: ${esc(p.brief)}` : ''}</p>
+      ${progress(p.percent)}
+      <div class="stats" style="margin-top:12px">
+        <div><b>${p.percent.toFixed(0)}%</b><span>готово</span></div>
+        <div><b>${p.done}</b><span>принято</span></div>
+        <div><b>${p.pending + p.running}</b><span>в очереди</span></div>
+        <div><b class="${p.dead ? 'bad' : ''}">${p.dead}</b><span>брак приёмки</span></div>
+        <div><b>${money(p.spent_usd)}</b><span>из ${money(p.budget_usd)}</span></div>
+        <div><b>${(p.tokens_in / 1000).toFixed(1)}k → ${(p.tokens_out / 1000).toFixed(1)}k</b><span>токенов</span></div>
+        <div><b>${dur(p.elapsed_s)}</b><span>идёт</span></div>
+        <div><b>${p.eta_s != null ? '≈ ' + dur(p.eta_s) : '—'}</b><span>до конца</span></div>
+      </div></div>`;
+    return p;
+  };
+  const p = await head();
+  every(3000, head);
+  setTab(p && p.status === 'running' && tab === 'cards' ? 'feed' : tab);
+}
+
+async function tabFeed(id) {
+  const body = document.getElementById('body');
+  const render = async () => {
+    let a; try { a = await api('activity', { session: id, limit: 25 }); } catch (e) { body.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+    body.innerHTML = `<div class="grid g2">
+      <div><h3>Только что готово</h3><div class="wrap"><table><tr><th>Когда</th><th>Кто / что</th><th>Попыток</th><th>Цена</th></tr>
+        ${a.done.map(d => `<tr><td class="muted">${when(d.at)}</td><td>${esc(d.title)}${d.retried_because ? `<div class="hint">до приёмки: ${esc(d.retried_because)}</div>` : ''}</td>
+          <td>${d.attempts}</td><td>${money(d.cost_usd)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">пока ничего</td></tr>'}</table></div></div>
+      <div><h3>Брак и повторы</h3><div class="wrap"><table><tr><th>Когда</th><th>Запись</th><th>Статус</th><th>Причина</th></tr>
+        ${a.problems.map(d => `<tr><td class="muted">${when(d.at)}</td><td class="mono">${esc(d.key.split(':').pop())}</td>
+          <td>${d.status === 'dead' ? '<span class="bad">✗ брак</span>' : `<span class="warn">↻ повтор ${d.attempts}/${d.max_attempts}</span>`}</td>
+          <td>${esc(d.error)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">проблем нет</td></tr>'}</table></div>
+        <p class="hint">Приёмка сама отбраковывает расхождения с параметрами, штампы, латиницу и повторы; исправимое механически исправляется без перегенерации.</p></div>
+    </div>`;
+  };
+  await render();
+  tabTimer = setInterval(render, 3000);
+}
+
+async function tabCards(id) {
+  const body = document.getElementById('body');
+  body.innerHTML = '<p class="muted">Загрузка…</p>';
+  let recs, marks;
+  try {
+    [recs, marks] = await Promise.all([api('show', { session: id, limit: 300 }), api('annotations', { session: id })]);
+  } catch (e) { body.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  const last = {};
+  for (const m of marks.annotations) last[(m.key || '') + '|' + (m.image_path || '')] = m;
+  const verdict = m => m ? `<span class="verdict ${m.verdict === 'good' ? 'ok' : 'bad'}">${m.verdict === 'good' ? '✓ принято' : '✗ брак' + (m.tags.length ? ': ' + esc(m.tags.join(', ')) : '')}</span>` : '';
+
+  const TITLE = ['full_name', 'center_name', 'title'];
+  const SUB = ['specialty', 'path_to_work', 'education', 'background', 'building_type', 'focus', 'segment'];
+  const TEXTS = [['biography', 'Биография'], ['professional_path', 'Путь'], ['quote', 'Цитата'], ['about', 'О центре'],
+    ['approach_text', 'Подход'], ['history', 'История'], ['description', 'Описание'], ['territory', 'Территория'],
+    ['rooms', 'Комнаты'], ['stages', 'Этапы']];
+
+  body.innerHTML = recs.records.length ? `<p class="hint">Пометка ложится в базу: брак — обязательно с метками, из них видно системные дефекты словаря. Снимки помечаются отдельно от текста.</p>
+    <div class="grid g2">${recs.records.map(r => {
+      const key = r.natural_key;
+      const title = TITLE.map(k => r[k]).find(Boolean) || key;
+      const sub = [r.age ? r.age + ' лет' : null, SUB.map(k => r[k]).find(Boolean)].filter(Boolean).join(' · ');
+      const shots = (r.images || []).filter(i => i.path).map(i => `<div class="shot" data-img="${esc(i.path)}">
+        <img src="/file?path=${encodeURIComponent(i.path)}" alt="${esc(i.role)}" loading="lazy">
+        <div class="m"><span class="muted">${esc(i.role)}</span>
+          <button data-v="good" title="снимок принят">✓</button><button data-v="bad" title="снимок в брак (метки — из поля ниже)">✗</button>
+          <span class="st">${verdict(last[key + '|' + i.path])}</span></div></div>`).join('');
+      const texts = TEXTS.filter(([k]) => r[k]).map(([k, l]) => `<div class="text"><em>${l}</em>${esc(Array.isArray(r[k]) ? r[k].join('\n') : r[k])}</div>`).join('');
+      return `<div class="card rec" data-key="${esc(key)}"><h4>${esc(title)}</h4><div class="sec">${esc(sub)}</div>
+        ${shots ? `<div class="shots">${shots}</div>` : ''}${texts}
+        <details style="margin-top:8px"><summary>параметры записи</summary><dl class="kv">${Object.entries(r)
+          .filter(([k, v]) => !['images', 'batch_id', 'session_id', ...TEXTS.map(t => t[0])].includes(k) && v !== null && v !== '')
+          .map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(Array.isArray(v) ? v.join(', ') : typeof v === 'object' ? JSON.stringify(v) : v)}</dd>`).join('')}</dl></details>
+        <div class="mark"><button data-v="good" class="ok">✓ Принять</button>
+          <input data-f="tags" placeholder="метки через запятую: анкета, штамп, факты, тон">
+          <input data-f="comment" placeholder="комментарий">
+          <button data-v="bad" class="bad">✗ Брак</button><span class="st">${verdict(last[key + '|'])}</span></div></div>`;
+    }).join('')}</div>` : '<p class="muted">Готовых записей этой сессии пока нет — они появятся после записи пачки в хранилище.</p>';
+
+  body.onclick = async ev => {
+    const b = ev.target.closest('button[data-v]'); if (!b) return;
+    const card = b.closest('.rec');
+    const shot = b.closest('.shot');
+    const tags = card.querySelector('[data-f=tags]').value.split(',').map(s => s.trim()).filter(Boolean);
+    const comment = card.querySelector('[data-f=comment]').value.trim() || undefined;
+    try {
+      await api('mark', { session: id, entity_key: card.dataset.key, verdict: b.dataset.v, tags, comment, image_path: shot ? shot.dataset.img : undefined });
+      (shot || card.querySelector('.mark')).querySelector('.st').innerHTML = verdict({ verdict: b.dataset.v, tags });
+      toast(b.dataset.v === 'good' ? 'Принято' : 'Брак записан');
+    } catch (e) { toast(e.message, 5000); }
+  };
+}
+
+async function tabQuality(id) {
+  const body = document.getElementById('body');
+  body.innerHTML = '<p class="muted">Загрузка…</p>';
+  let f, s, a;
+  try { [f, s, a] = await Promise.all([api('feedback', { session: id }), api('similarity', { session: id }), api('annotations', { session: id })]); }
+  catch (e) { body.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  const total = f.good + f.bad;
+  const maxTag = Math.max(1, ...f.tags.map(t => t.count));
+  body.innerHTML = `<div class="grid g2">
+    <div class="card"><h3 style="margin-top:0">Приёмка</h3>
+      <div class="stats"><div><b>${total}</b><span>просмотрено</span></div><div><b class="ok">${f.good}</b><span>принято</span></div>
+        <div><b class="bad">${f.bad}</b><span>брак</span></div><div><b>${total ? pct(f.reject_rate) : '—'}</b><span>доля брака</span></div></div>
+      ${f.tags.length ? `<h3>Метки брака</h3><div class="bars">${f.tags.map(t => `<span class="lab" title="${esc(t.tag)}">${esc(t.tag)}</span>
+        <div class="track"><div class="fill" style="width:${t.count / maxTag * 100}%" title="${esc(t.tag)}: ${t.count}"></div></div><span class="val">${t.count}</span>`).join('')}</div>` : '<p class="muted">Меток пока нет.</p>'}
+      ${f.systemic.length ? `<p class="warn" style="margin-top:12px">⚠ Системные дефекты — чинить словарём, а не перегенерацией: <b>${esc(f.systemic.join(', '))}</b></p>` : '<p class="hint" style="margin-top:12px">Системным считается дефект, повторившийся и по доле, и по числу (не меньше трёх раз) — единичная вкусовщина сюда не попадает.</p>'}
+    </div>
+    <div class="card"><h3 style="margin-top:0">Однообразие текстов</h3>
+      ${s.mean != null ? `<div class="stats"><div><b>${pct(s.median, 1)}</b><span>медиана совпадений с ближайшим</span></div><div><b>${pct(s.mean, 1)}</b><span>среднее</span></div><div><b>${pct(s.max, 1)}</b><span>максимум</span></div></div>
+        <h3>Самые похожие пары</h3><table>${s.top_pairs.map(t => `<tr><td>${pct(t.score, 1)}</td><td>${esc(t.a)}</td><td>${esc(t.b)}</td></tr>`).join('')}</table>
+        <p class="hint">Доля общих трёхсловных оборотов с самым похожим текстом прогона. Копией считается от 25%.</p>` : `<p class="muted">${esc(s.note || 'нет данных')}</p>`}
+    </div></div>
+    <h3>Все пометки</h3><div class="wrap"><table><tr><th>Когда</th><th>Кто</th><th>Что</th><th>Запись</th><th>Вердикт</th><th>Метки</th><th>Комментарий</th></tr>
+      ${a.annotations.slice().reverse().map(m => `<tr><td class="muted">${when(m.at)}</td><td>${esc(m.author || '—')}</td><td>${m.target === 'image' ? 'снимок' : 'текст'}</td>
+        <td class="mono">${esc((m.key || '').split(':').pop())}</td><td class="${m.verdict === 'good' ? 'ok' : 'bad'}">${m.verdict === 'good' ? '✓ принято' : '✗ брак'}</td>
+        <td>${esc(m.tags.join(', '))}</td><td>${esc(m.comment || '')}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">пометок пока нет</td></tr>'}</table></div>`;
+}
+
+// ======================================================== невидимый слой
+
+const USAGE = { text: 'в текст', visual: 'в снимок', both: 'текст и снимок', store_only: 'только в базе' };
+const MENTION = { natural: 'называть прямо', background: 'фон', required: 'обязательно назвать' };
+
+function domainText(d, key) {
+  if (key === 'full_name') return '<span class="hint">из справочника имён — код, с модой по году рождения</span>';
+  switch (d.kind) {
+    case 'int': case 'float': return `${d.min} … ${d.max}${d.weights?.length ? ' <span class="hint">(с весами)</span>' : ''}`;
+    case 'bool': return `да — ${pct(d.p_true ?? 0.5)}`;
+    case 'enum': case 'multi_enum': {
+      const sum = d.variants.reduce((s, v) => s + (v.weight ?? 1), 0) || 1;
+      return (d.kind === 'multi_enum' ? `<span class="hint">выбор ${d.min_pick ?? 0}–${d.max_pick ?? 1} из списка</span><br>` : '') +
+        d.variants.map(v => `${esc(v.value)} <span class="hint">${pct((v.weight ?? 1) / sum)}</span>`).join('<br>');
+    }
+    case 'computed': return `<span class="hint">вычисляется:</span> <code>${esc(d.expr)}</code>`;
+    case 'derived': return '<span class="hint">пишет модель</span>';
+    default: return esc(JSON.stringify(d));
+  }
+}
+
+function distCard(p) {
+  const s = p.stats;
+  let chart = '';
+  if (s.type === 'number') {
+    const max = Math.max(1, ...s.histogram.counts);
+    chart = `<div class="hist">${s.histogram.counts.map((c, i) => {
+      const w = (s.histogram.to - s.histogram.from) / Math.max(1, s.histogram.counts.length - 1);
+      const x = s.histogram.from + w * i;
+      return `<div style="height:${c / max * 100}%" title="≈ ${num(x)}: ${c}"></div>`;
+    }).join('')}</div><div class="axis"><span>${num(s.min)}</span><span>медиана ${num(s.median)} · среднее ${num(s.mean)}</span><span>${num(s.max)}</span></div>
+      <p class="hint" style="margin:4px 0 0">10% ≤ ${num(s.p10)}, 90% ≤ ${num(s.p90)}</p>`;
+  } else if (s.type === 'bool') {
+    chart = `<div class="bars"><span class="lab">да</span><div class="track"><div class="fill" style="width:${s.true_share * 100}%" title="да: ${pct(s.true_share, 1)}"></div></div><span class="val">${pct(s.true_share)}</span></div>`;
+  } else {
+    const vals = s.values.slice(0, 12);
+    const max = Math.max(0.0001, ...vals.map(v => v.share));
+    chart = `<div class="bars">${vals.map(v => `<span class="lab" title="${esc(v.value)}">${esc(v.value)}</span>
+      <div class="track"><div class="fill" style="width:${v.share / max * 100}%" title="${esc(v.value)}: ${pct(v.share, 1)}"></div></div><span class="val">${pct(v.share)}</span>`).join('')}</div>
+      ${s.values.length > 12 ? `<p class="hint">и ещё ${s.values.length - 12} значений</p>` : ''}
+      ${s.type === 'list' ? `<p class="hint">в среднем ${s.mean_len.toFixed(1)} на запись</p>` : ''}`;
+  }
+  return `<div class="card dist"><h4>${esc(p.title)}</h4><div class="hint">${esc(p.key)} · ${esc(p.group || '')}${p.identity ? ' · уникальность' : ''}</div>${chart}</div>`;
+}
+
+async function pageDict(kind) {
+  const ks = await kinds();
+  kind = kind || 'doctor';
+  $app.innerHTML = `<h2>Невидимый слой</h2>
+    <div class="row" style="margin-bottom:12px">
+      <label class="f">Словарь <select id="dk">${ks.map(k => `<option value="${esc(k.kind)}" ${k.kind === kind ? 'selected' : ''}>${esc(k.what)}${k.draft ? ' — черновик' : ''}</option>`).join('')}</select></label>
+      <label class="f">Найти параметр <input id="dq" placeholder="стаж, трезв, age…"></label>
+      <label class="f">Выборка <input id="dn" type="number" value="500" min="50" max="5000" style="width:90px"></label>
+      <button id="ddist">Распределение на выборке</button>
+    </div><div id="dbody" class="muted">Загрузка…</div>`;
+  document.getElementById('dk').onchange = e => location.hash = '#/dict/' + e.target.value;
+
+  let d; try { d = await dict(kind); } catch (e) { document.getElementById('dbody').innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  const render = q => {
+    q = (q || '').toLowerCase();
+    const ps = d.params.filter(p => !q || (p.key + ' ' + p.title + ' ' + (p.group || '')).toLowerCase().includes(q));
+    const groups = [...new Set(ps.map(p => p.group || '—'))];
+    const sampled = d.params.filter(p => !['computed', 'derived'].includes(p.domain.kind) || p.key === 'full_name').length;
+    document.getElementById('dbody').innerHTML = `
+      <div class="card"><b>${esc(d.name)}</b> · версия ${esc(d.version)} · <span class="mono">${esc(d.file)}</span>
+        ${d.extends?.length ? ` · наследует ${d.extends.map(esc).join(', ')}` : ''}
+        <p class="sec" style="margin:6px 0">${esc(d.description || '')}</p>
+        <div class="stats"><div><b>${d.params.length}</b><span>параметров</span></div><div><b>${sampled}</b><span>задаёт код</span></div>
+          <div><b>${d.params.filter(p => p.domain.kind === 'computed').length}</b><span>вычисляются</span></div>
+          <div><b>${d.params.filter(p => p.domain.kind === 'derived' && p.key !== 'full_name').length}</b><span>пишет модель</span></div>
+          <div><b>${d.hard.length}</b><span>жёстких правил</span></div><div><b>${d.soft.length}</b><span>корреляций</span></div>
+          <div><b class="${d.issues.length ? 'bad' : 'ok'}">${d.issues.length ? d.issues.length : '✓'}</b><span>${d.issues.length ? 'ошибок словаря' : 'словарь валиден'}</span></div></div>
+        ${d.issues.length ? `<pre class="err">${esc(d.issues.join('\n'))}</pre>` : ''}
+        <p class="hint">Словарь правится в JSON-файле; при загрузке проверяется: неизвестные параметры, опечатки в вариантах, порядок объявления, несовместимые сдвиги.</p></div>
+      ${groups.map(g => `<h3>${esc(g)}</h3><div class="wrap"><table class="dict"><colgroup><col class="c1"><col class="c2"><col class="c3"><col class="c4"><col></colgroup>
+        <tr><th>Параметр</th><th>Значения и веса</th><th>Куда идёт</th><th>Как подавать</th><th>Пояснение</th></tr>
+        ${ps.filter(p => (p.group || '—') === g).map(p => `<tr>
+          <td><b>${esc(p.title)}</b><div class="mono muted">${esc(p.key)}</div>${p.identity ? '<span class="badge" title="участвует в подписи уникальности">уникальность</span>' : ''}</td>
+          <td>${domainText(p.domain, p.key)}</td><td>${esc(USAGE[p.usage] || p.usage)}</td>
+          <td>${esc(MENTION[p.mention] || p.mention)}${p.directive ? `<div class="hint">${esc(p.directive)}</div>` : ''}</td>
+          <td class="sec">${esc(p.note || '')}</td></tr>`).join('')}</table></div>`).join('')}
+      <h3>Жёсткие правила <span class="hint">— строка, нарушившая правило, пересэмплируется; в базу не попадёт</span></h3>
+      <div class="wrap"><table><tr><th>Правило</th><th>Выражение</th><th>Что запрещает</th></tr>
+        ${d.hard.filter(r => !q || (r.name + r.expr + r.message).toLowerCase().includes(q)).map(r => `<tr><td>${esc(r.name.replaceAll('_', ' '))}</td><td><code>${esc(r.expr)}</code></td><td class="sec">${esc(r.message)}</td></tr>`).join('')}</table></div>
+      <h3>Корреляции <span class="hint">— делают правдоподобное вероятнее</span></h3>
+      <div class="wrap"><table><tr><th>Корреляция</th><th>Когда</th><th>Что делает</th></tr>
+        ${d.soft.filter(r => !q || (r.name + r.when + JSON.stringify(r.then)).toLowerCase().includes(q)).map(r => `<tr><td>${esc(r.name.replaceAll('_', ' '))}</td><td><code>${esc(r.when)}</code></td>
+          <td>${r.then.map(b => b.kind === 'range' ? `${esc(b.param)}: ${b.min != null ? 'от ' + b.min : ''} ${b.max != null ? 'до ' + b.max : ''}` :
+            b.kind === 'force' ? `${esc(b.param)} = ${esc(b.value)}` : `${esc(b.param)} «${esc(b.value)}» ×${b.factor}`).join('<br>')}</td></tr>`).join('')}</table></div>
+      <div id="ddistbox"></div>`;
+  };
+  render();
+  document.getElementById('dq').oninput = e => render(e.target.value);
+  document.getElementById('ddist').onclick = async () => {
+    const box = document.getElementById('ddistbox');
+    box.innerHTML = '<p class="muted">Считаю…</p>';
+    box.scrollIntoView({ behavior: 'smooth' });
+    try {
+      const r = await api('distribution', { kind, sample: Number(document.getElementById('dn').value) || 500 });
+      box.innerHTML = `<h3>Распределение на ${r.sample} сгенерированных строках</h3>
+        <p class="hint">Модель не вызывалась. Так видно перекосы словаря до того, как потрачены деньги.</p>
+        <div class="grid g3">${r.params.map(distCard).join('')}</div>`;
+    } catch (e) { box.innerHTML = `<p class="err">${esc(e.message)}</p>`; }
+  };
+}
+
+// ======================================================== демо-страницы
+
+async function pageSite() {
+  $app.innerHTML = `<h2>Демо-страницы центров</h2>
+    <div class="row" style="margin-bottom:12px"><button id="build" class="primary">Собрать страницы заново</button>
+      <a class="btn" href="/out/site/index.html" target="_blank" rel="noopener">Открыть в новой вкладке</a>
+      <span class="hint">Страницы собираются из готовых центров и помечены как внутренние (noindex).</span></div>
+    <div id="sitebody"><iframe class="site" src="/out/site/index.html"></iframe></div>`;
+  document.getElementById('build').onclick = async () => {
+    try {
+      const r = await api('site');
+      if (!r.pages) { toast('Центров пока нет — запустите «Центр» в разделе «Новый прогон»'); return; }
+      toast(`Собрано страниц: ${r.pages}`);
+      document.querySelector('iframe.site').src = r.index + '?' + Date.now();
+    } catch (e) { toast(e.message, 5000); }
+  };
+}
+
+// ============================================================ хранилище
+
+async function pageStorage() {
+  $app.innerHTML = `<h2>Хранилище</h2><div id="stbody" class="muted">Загрузка…</div>`;
+  const render = async () => {
+    let s; try { s = await api('storage'); } catch (e) { document.getElementById('stbody').innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+    const nx = s.nexorium;
+    const names = { places: 'Здания', programs: 'Программы', directors: 'Руководители', doctors: 'Врачи', psychologists: 'Психологи', consultants: 'Консультанты', centers: 'Центры' };
+    document.getElementById('stbody').innerHTML = `
+      <div class="card"><p class="sec" style="margin-top:0">Основное хранилище — своё пространство в Nexorium. Локальная копия (<span class="mono">${esc(s.out_dir)}</span>) нужна для сборки центров, страниц и съёмки; в неё попадает только то, что легло в базу.</p>
+        ${nx.configured ? (nx.error ? `<p class="err">Nexorium: ${esc(nx.error)}</p>` : '<p class="ok">✓ Nexorium подключён</p>') : '<p class="warn">⚠ Nexorium не подключён: заполните NEXORIUM_SPACE и NEXORIUM_KEY в .env</p>'}</div>
+      <div class="wrap" style="margin-top:12px"><table><tr><th>Коллекция</th><th>Локально</th><th>В Nexorium</th><th></th></tr>
+        ${Object.keys(names).map(c => {
+          const n = nx.collections?.[c]?.count;
+          const diff = n != null && n !== s.local[c];
+          return `<tr><td>${names[c]} <span class="mono muted">${c}</span></td><td>${s.local[c] ?? 0}</td><td>${n ?? '—'}</td>
+            <td>${diff ? '<span class="warn">расходится — залейте</span>' : n != null ? '<span class="ok">✓</span>' : ''}</td></tr>`;
+        }).join('')}</table></div>
+      <div class="row" style="margin-top:12px"><button id="up" ${nx.configured ? '' : 'disabled'}>Залить локальное в Nexorium</button>
+        <span class="hint">Повтор безопасен: ключ записи в Nexorium уникален, уже залитое пропускается. Снимки заливаются вместе с записями.</span></div>
+      <pre id="upreport" class="mono"></pre>`;
+    const up = document.getElementById('up');
+    if (up) up.onclick = async () => {
+      if (!confirm('Залить локальные записи и снимки в Nexorium?')) return;
+      up.disabled = true; document.getElementById('upreport').textContent = 'Заливаю…';
+      try { const r = await api('upload', {}); document.getElementById('upreport').textContent = r.report.join('\n'); render(); }
+      catch (e) { document.getElementById('upreport').textContent = e.message; }
+      finally { up.disabled = false; }
+    };
+  };
+  await render();
+}
+
+// ============================================================ общее
+
+document.addEventListener('click', async ev => {
+  const b = ev.target.closest('button[data-act]');
+  if (b) {
+    ev.stopPropagation();
+    try {
+      await api(b.dataset.act, { session: b.dataset.id });
+      toast(b.dataset.act === 'pause' ? 'Пауза: прогон встанет после текущей пачки' : 'Продолжено');
+    } catch (e) { toast(e.message, 5000); }
     return;
   }
-  if (row) location.hash = row.dataset.id;
-});
+  const row = ev.target.closest('tr[data-open]');
+  if (row) location.hash = '#/session/' + row.dataset.open;
+}, true);
 
+async function route() {
+  stopTimers();
+  const [, page = 'runs', arg, sub] = location.hash.split('/');
+  document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.r === (page === 'session' ? 'runs' : page)));
+  try {
+    if (page === 'new') await pageNew();
+    else if (page === 'session') await pageSession(arg, sub || 'cards');
+    else if (page === 'dict') await pageDict(arg);
+    else if (page === 'site') await pageSite();
+    else if (page === 'storage') await pageStorage();
+    else await pageRuns();
+  } catch (e) { $app.innerHTML = `<p class="err">${esc(e.message)}</p>`; }
+}
 window.addEventListener('hashchange', route);
-function route() { const id = location.hash.slice(1); id ? showSession(id) : showSessions(); }
-route();
+if (!location.hash) location.hash = '#/runs'; else route();
 </script>
 </body>
 </html>

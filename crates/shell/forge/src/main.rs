@@ -201,6 +201,10 @@ fn load_generator(kind: &str) -> Result<Arc<dyn Generator>, Box<dyn std::error::
         _ => {}
     }
 
+    if kind == "center" {
+        return center_generator(false);
+    }
+
     let model = ParamModel::load(format!("dictionaries/role-{kind}.json"))?;
 
     // «-v2» — черновики расширенных моделей на согласовании: словарь другой,
@@ -280,7 +284,8 @@ async fn cmd_run(args: &[String]) -> R {
     let with_images = args.iter().any(|a| a == "--images");
 
     let g = load_generator(kind)?;
-    let spec = spec_from(args);
+    let mut spec = spec_from(args);
+    spec.dictionary = Some(kind.to_string());
     let store = open_store().await?;
 
     let catalog = Arc::new(Catalog::load("config/model-catalog.json")?);
@@ -291,7 +296,6 @@ async fn cmd_run(args: &[String]) -> R {
         );
     }
 
-    let proxy = std::env::var("OUTBOUND_PROXY").ok().filter(|p| !p.trim().is_empty());
     let engine = text_engine(store.clone(), catalog.clone())?;
 
     let session = engine.start_session(&*g, &spec).await?;
@@ -306,16 +310,8 @@ async fn cmd_run(args: &[String]) -> R {
     );
 
     if with_images {
-        let key = std::env::var("OPENAI_API_KEY").map_err(|_| "не задан OPENAI_API_KEY")?;
-        let model = Arc::new(OpenAiImages::new(
-            ProviderConfig::openai(&key, IMAGE_MODEL).with_proxy(proxy),
-            catalog.clone(),
-        )?);
-        let assets = Arc::new(FsAssetStore::new(OUT_DIR));
-
         println!("\nИзображения…");
-        let made = ImagePipeline::new(store.clone(), model, assets)
-            .concurrency(2)
+        let made = image_pipeline(store.clone(), catalog.clone())?
             .run(g.clone(), &session, &image_kind(&g.descriptor().kind))
             .await?;
         println!("Снимков получено: {made}");
@@ -344,6 +340,28 @@ async fn cmd_run(args: &[String]) -> R {
     println!("Посмотреть: forge show {session}");
 
     Ok(())
+}
+
+/// Линия снимков: OpenAI, файлы в каталоге результатов.
+fn image_pipeline(store: Store, catalog: Arc<Catalog>) -> Result<ImagePipeline, Box<dyn std::error::Error>> {
+    let proxy = std::env::var("OUTBOUND_PROXY").ok().filter(|p| !p.trim().is_empty());
+    let key = std::env::var("OPENAI_API_KEY").map_err(|_| "не задан OPENAI_API_KEY")?;
+    let model = Arc::new(OpenAiImages::new(
+        ProviderConfig::openai(&key, IMAGE_MODEL).with_proxy(proxy),
+        catalog,
+    )?);
+    let assets = Arc::new(FsAssetStore::new(OUT_DIR));
+    Ok(ImagePipeline::new(store, model, assets).concurrency(2))
+}
+
+/// Словарь, по которому спланирована сессия (`doctor-v2` и т.п.), если он
+/// записан в постановке. Старые сессии его не хранят — тогда вид сессии.
+fn session_dictionary(s: &synthforge_store::Session) -> Option<String> {
+    s.spec_json()
+        .ok()?
+        .get("dictionary")?
+        .as_str()
+        .map(str::to_string)
 }
 
 /// Движок с текстовой моделью: общий для запуска и продолжения прогона.
@@ -382,7 +400,10 @@ async fn cmd_resume(args: &[String]) -> R {
     let session = arg(args, 1).ok_or("нужен идентификатор сессии")?;
     let store = open_store().await?;
     let s = store.session(session).await?.ok_or("сессия не найдена")?;
-    let kind = arg(args, 2).map(str::to_string).unwrap_or_else(|| s.kind.clone());
+    let kind = arg(args, 2)
+        .map(str::to_string)
+        .or_else(|| session_dictionary(&s))
+        .unwrap_or_else(|| s.kind.clone());
     let g = load_generator(&kind)?;
 
     let catalog = Arc::new(Catalog::load("config/model-catalog.json")?);
@@ -635,8 +656,35 @@ fn load_pool(collection: &str) -> Vec<synthforge_compose_center::Candidate> {
 async fn cmd_compose(args: &[String]) -> R {
     let count: usize = arg(args, 1).and_then(|s| s.parse().ok()).unwrap_or(3);
     let seed: u64 = flag(args, "--seed").and_then(|s| s.parse().ok()).unwrap_or(2026);
+    let g = center_generator(true)?;
 
-    // Всё, что уже занято собранными раньше центрами, в новую сборку не идёт.
+    let store = open_store().await?;
+    let catalog = Arc::new(Catalog::load("config/model-catalog.json")?);
+    let proxy = std::env::var("OUTBOUND_PROXY").ok().filter(|p| !p.trim().is_empty());
+    let xai = std::env::var("XAI_API_KEY").map_err(|_| "не задан XAI_API_KEY")?;
+    let text = Arc::new(OpenAiCompatText::new(
+        ProviderConfig::xai(&xai, TEXT_MODEL).with_proxy(proxy),
+        catalog,
+    )?);
+
+    let engine = Engine::new(store, content_store()?, text);
+    let spec = GenSpec::new(count).seed(seed);
+    let session = engine.start_session(&*g, &spec).await?;
+    let p = engine.run(g.clone(), &session, None).await?;
+    let written = engine.flush(&*g, &session).await?;
+
+    println!("Центров собрано: {written} (брак {})", p.dead);
+    println!("Расход ${:.4}", p.spent_usd);
+    println!("\nПосмотреть: forge center {session}");
+    Ok(())
+}
+
+/// Сборщик центров из уже сгенерированного.
+///
+/// Ничего не сочиняет: здание, программа, руководитель и команда берутся из
+/// пулов. Всё, что уже занято собранными раньше центрами, в новую сборку не
+/// идёт — ни люди, ни здания, ни названия.
+fn center_generator(verbose: bool) -> Result<Arc<dyn Generator>, Box<dyn std::error::Error>> {
     let mut reserved = std::collections::HashSet::new();
     for c in load_pool("centers") {
         if let Some(n) = c.record.get("center_name").and_then(|v| v.as_str()) {
@@ -663,11 +711,15 @@ async fn cmd_compose(args: &[String]) -> R {
         consultants: load_pool("consultants"),
         reserved,
     };
-    println!(
-        "Пулы: {}\nУже занято в собранных центрах: {}\n",
-        pools.sizes(),
-        pools.reserved.len()
-    );
+    if verbose {
+        println!(
+            "Пулы: {}
+Уже занято в собранных центрах: {}
+",
+            pools.sizes(),
+            pools.reserved.len()
+        );
+    }
 
     let model = ParamModel::load("dictionaries/object-center.json")?;
     let names: Vec<String> = serde_json::from_str::<serde_json::Value>(
@@ -681,31 +733,11 @@ async fn cmd_compose(args: &[String]) -> R {
         &std::fs::read_to_string("reference/services-ru.json")?,
     )?;
 
-    let g: Arc<dyn Generator> = Arc::new(
+    Ok(Arc::new(
         synthforge_compose_center::CenterGenerator::new(model, pools)
             .with_names(names)
             .with_services(services),
-    );
-
-    let store = open_store().await?;
-    let catalog = Arc::new(Catalog::load("config/model-catalog.json")?);
-    let proxy = std::env::var("OUTBOUND_PROXY").ok().filter(|p| !p.trim().is_empty());
-    let xai = std::env::var("XAI_API_KEY").map_err(|_| "не задан XAI_API_KEY")?;
-    let text = Arc::new(OpenAiCompatText::new(
-        ProviderConfig::xai(&xai, TEXT_MODEL).with_proxy(proxy),
-        catalog,
-    )?);
-
-    let engine = Engine::new(store, content_store()?, text);
-    let spec = GenSpec::new(count).seed(seed);
-    let session = engine.start_session(&*g, &spec).await?;
-    let p = engine.run(g.clone(), &session, None).await?;
-    let written = engine.flush(&*g, &session).await?;
-
-    println!("Центров собрано: {written} (брак {})", p.dead);
-    println!("Расход ${:.4}", p.spent_usd);
-    println!("\nПосмотреть: forge center {session}");
-    Ok(())
+    ))
 }
 
 /// Показать центр целиком: текст о нём, здание, программу и людей.
@@ -874,61 +906,84 @@ async fn cmd_photos(args: &[String]) -> R {
 /// Повторный запуск безопасен: ключ сущности в Nexorium уникален, и те, кто
 /// уже в базе, пропускаются.
 async fn cmd_upload(args: &[String]) -> R {
+    let wanted: Vec<&str> = args.iter().skip(1).map(String::as_str).collect();
+    for line in upload(&wanted).await? {
+        println!("{line}");
+    }
+    Ok(())
+}
+
+/// Коллекции, которые генерирует проект, и их названия в Nexorium.
+const COLLECTIONS: &[(&str, &str)] = &[
+    ("places", "Здания"),
+    ("programs", "Программы"),
+    ("directors", "Руководители"),
+    ("doctors", "Врачи"),
+    ("psychologists", "Психологи"),
+    ("consultants", "Консультанты"),
+    ("centers", "Центры"),
+];
+
+/// Залить каталог результатов в Nexorium. Пустой `wanted` — всё, включая
+/// снимки. Возвращает отчёт построчно.
+async fn upload(wanted: &[&str]) -> Result<Vec<String>, String> {
     use synthforge_ports::{BatchVerdict, ContentStore, WriteOutcome};
 
-    let nx = nexorium()?.ok_or("нет доступа к Nexorium: заполните NEXORIUM_SPACE и NEXORIUM_KEY в .env")?;
+    let nx = nexorium()
+        .map_err(|e| e.to_string())?
+        .ok_or("нет доступа к Nexorium: заполните NEXORIUM_SPACE и NEXORIUM_KEY в .env")?;
     let store = synthforge_nexorium::NexoriumStore::new(nx.clone());
+    let mut report = Vec::new();
 
-    const ALL: &[(&str, &str)] = &[
-        ("places", "Здания"),
-        ("programs", "Программы"),
-        ("directors", "Руководители"),
-        ("doctors", "Врачи"),
-        ("psychologists", "Психологи"),
-        ("consultants", "Консультанты"),
-        ("centers", "Центры"),
-    ];
-    let wanted: Vec<&str> = args.iter().skip(1).map(String::as_str).collect();
-
-    for (collection, title) in ALL {
+    for (collection, title) in COLLECTIONS {
         if !wanted.is_empty() && !wanted.contains(collection) {
             continue;
         }
         let records: Vec<serde_json::Value> = load_pool(collection).into_iter().map(|c| c.record).collect();
         if records.is_empty() {
-            println!("{collection:<14} пусто");
+            report.push(format!("{collection:<14} пусто"));
             continue;
         }
-        store.ensure_collection(collection, title).await?;
+        store.ensure_collection(collection, title).await.map_err(|e| e.to_string())?;
 
         let mut sent = 0usize;
         for (i, chunk) in records.chunks(synthforge_nexorium::BULK_MAX).enumerate() {
             let batch = format!("upload-{collection}-{i}");
-            match store.write_batch(collection, &batch, chunk).await? {
+            match store.write_batch(collection, &batch, chunk).await.map_err(|e| e.to_string())? {
                 WriteOutcome::Committed => sent += chunk.len(),
-                WriteOutcome::Unknown => match store.verify_batch(collection, &batch, chunk.len() as u64).await? {
-                    BatchVerdict::Committed => sent += chunk.len(),
-                    other => return Err(format!("{collection}: пачка {batch} — {other:?}, запустите upload ещё раз").into()),
-                },
+                WriteOutcome::Unknown => {
+                    match store
+                        .verify_batch(collection, &batch, chunk.len() as u64)
+                        .await
+                        .map_err(|e| e.to_string())?
+                    {
+                        BatchVerdict::Committed => sent += chunk.len(),
+                        other => {
+                            return Err(format!(
+                                "{collection}: пачка {batch} — {other:?}, запустите заливку ещё раз"
+                            ))
+                        }
+                    }
+                }
             }
         }
-        let total = store.count(collection).await?;
-        println!("{collection:<14} отправлено {sent:>4} · в Nexorium всего {total}");
+        let total = store.count(collection).await.map_err(|e| e.to_string())?;
+        report.push(format!("{collection:<14} отправлено {sent:>4} · в Nexorium всего {total}"));
     }
 
     if wanted.is_empty() || wanted.contains(&"photos") {
-        upload_photos(&nx).await?;
+        report.push(upload_photos(&nx).await?);
     }
-    Ok(())
+    Ok(report)
 }
 
 /// Снимки из `out/photos.json` — файлами в Nexorium, ссылками в записях.
 ///
 /// Запись дополняется полем `images`: назначение снимка, идентификатор файла и
 /// адрес. Снимки, уже привязанные к записи, повторно не грузятся.
-async fn upload_photos(nx: &synthforge_nexorium::Nexorium) -> R {
+async fn upload_photos(nx: &synthforge_nexorium::Nexorium) -> Result<String, String> {
     let map = read_photo_map(&format!("{OUT_DIR}/photos.json"));
-    let cols = nx.collections().await?;
+    let cols = nx.collections().await.map_err(|e| e.to_string())?;
     let (mut uploaded, mut records) = (0usize, 0usize);
 
     for (key, shots) in map {
@@ -938,7 +993,7 @@ async fn upload_photos(nx: &synthforge_nexorium::Nexorium) -> R {
             println!("  ⨯ {key}: нет коллекции для вида «{kind}»");
             continue;
         };
-        let Some(rec) = nx.find_one(col.id, "natural_key", &key).await? else {
+        let Some(rec) = nx.find_one(col.id, "natural_key", &key).await.map_err(|e| e.to_string())? else {
             println!("  ⨯ {key}: записи нет в Nexorium — сначала залейте записи");
             continue;
         };
@@ -973,7 +1028,7 @@ async fn upload_photos(nx: &synthforge_nexorium::Nexorium) -> R {
                 .file_stem()
                 .map(|n| format!("{}.jpg", n.to_string_lossy()))
                 .unwrap_or_else(|| format!("{role}.jpg"));
-            let resp = nx.upload_file(&name, "image/jpeg", jpeg).await?;
+            let resp = nx.upload_file(&name, "image/jpeg", jpeg).await.map_err(|e| e.to_string())?;
             let file_id = resp
                 .pointer("/data/id")
                 .or_else(|| resp.get("id"))
@@ -994,12 +1049,11 @@ async fn upload_photos(nx: &synthforge_nexorium::Nexorium) -> R {
             if let Some(o) = data.as_object_mut() {
                 o.insert("images".into(), serde_json::Value::Array(images));
             }
-            nx.replace(col.id, rec.id, &data).await?;
+            nx.replace(col.id, rec.id, &data).await.map_err(|e| e.to_string())?;
             records += 1;
         }
     }
-    println!("photos         загружено снимков {uploaded} · обновлено записей {records}");
-    Ok(())
+    Ok(format!("photos         загружено снимков {uploaded} · обновлено записей {records}"))
 }
 
 /// Перекодировать снимок в JPEG для публикации.
@@ -1028,6 +1082,20 @@ fn read_photo_map(path: &str) -> std::collections::BTreeMap<String, Vec<serde_js
 
 /// Демо-страницы центров для приёмки глазами.
 async fn cmd_site() -> R {
+    let n = build_site()?;
+    if n == 0 {
+        println!("Центров пока нет. Сначала: forge compose 3");
+        return Ok(());
+    }
+    let index = std::fs::canonicalize(format!("{OUT_DIR}/site/index.html"))?;
+    println!("Страниц центров: {n}");
+    println!("Открыть: {}", index.display().to_string().trim_start_matches(r"\\?\"));
+    Ok(())
+}
+
+/// Собрать демо-страницы центров в `<каталог результатов>/site`. Возвращает
+/// число страниц; ноль — центров ещё нет.
+fn build_site() -> Result<usize, Box<dyn std::error::Error>> {
     let mut pools: std::collections::HashMap<String, serde_json::Value> =
         ["places", "programs", "directors", "doctors", "psychologists", "consultants"]
             .iter()
@@ -1043,17 +1111,10 @@ async fn cmd_site() -> R {
     }
 
     let centers: Vec<serde_json::Value> = load_pool("centers").into_iter().map(|c| c.record).collect();
-
     if centers.is_empty() {
-        println!("Центров пока нет. Сначала: forge compose 3");
-        return Ok(());
+        return Ok(0);
     }
-
-    let n = site::build(&OUT_DIR.path(), &pools, &centers)?;
-    let index = std::fs::canonicalize(format!("{OUT_DIR}/site/index.html"))?;
-    println!("Страниц центров: {n}");
-    println!("Открыть: {}", index.display().to_string().trim_start_matches(r"\\?\"));
-    Ok(())
+    Ok(site::build(&OUT_DIR.path(), &pools, &centers)?)
 }
 
 /// Насколько однообразны тексты прогона.

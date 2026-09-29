@@ -1,11 +1,15 @@
-//! Веб-панель наблюдения и приёмки: `forge panel`.
+//! Веб-панель: `forge panel`.
 //!
-//! Постановка требовала видеть прогон в реальном времени, ставить на паузу и
-//! помечать результат. В консоли это есть, но руководителю нужна страница.
+//! Всё, что требовала постановка, в одном месте: запуск одиночной и пакетной
+//! генерации с вводной, режимом уникальности, когортами и ограничениями;
+//! просмотр невидимого слоя (словарь, диапазоны, правила, распределения);
+//! наблюдение за прогоном в реальном времени и пауза; приёмка с пометками в
+//! базу; демо-страницы центров; состояние хранилища.
 //!
 //! Панель — тонкая оболочка над тем же набором инструментов, что у агента по
-//! протоколу ([`crate::mcp::Server::tool`]): одни рычаги, одни ограничения,
-//! никакой второй реализации. Слушает только `127.0.0.1` — наружу не видна.
+//! протоколу ([`crate::mcp::Server::tool`]): одни рычаги, одни проверки,
+//! никакой второй реализации. Слушает `127.0.0.1` (на сервере — через
+//! SSH-туннель): входа в панели нет, и в интернет она смотреть не должна.
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -20,28 +24,25 @@ use serde_json::{json, Value};
 use crate::mcp::Server;
 use crate::OUT_DIR;
 
-/// Инструменты, доступные из браузера. Запуск прогона (`run`) сюда не входит:
-/// он тратит деньги, а у страницы нет подтверждения бюджета, как у агента.
-const ALLOWED: &[&str] = &["kinds", "sessions", "progress", "pause", "resume", "show", "mark", "feedback"];
-
 pub async fn serve(port: u16) -> Result<(), Box<dyn std::error::Error>> {
-    let server = Arc::new(Server::new(crate::open_store().await?));
+    let server = Arc::new(Server::for_panel(crate::open_store().await?));
     let app = Router::new()
         .route("/", get(|| async { Html(include_str!("panel.html")) }))
         .route("/api/:tool", post(tool))
         .route("/file", get(file))
+        .route("/out/*path", get(out_file))
         .with_state(server);
 
     // По умолчанию только эта машина. В контейнере слушаем все интерфейсы
     // (PANEL_BIND=0.0.0.0), а наружу порт публикуется лишь на 127.0.0.1
-    // сервера: входа в панели нет, и в интернет она смотреть не должна.
+    // сервера.
     let ip: std::net::IpAddr = std::env::var("PANEL_BIND")
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(std::net::IpAddr::from([127, 0, 0, 1]));
     let addr = SocketAddr::new(ip, port);
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    println!("Панель: http://{addr}  (Ctrl+C — остановить)");
+    println!("Панель: http://127.0.0.1:{port}  (Ctrl+C — остановить)");
     axum::serve(listener, app).await?;
     Ok(())
 }
@@ -49,13 +50,18 @@ pub async fn serve(port: u16) -> Result<(), Box<dyn std::error::Error>> {
 async fn tool(
     State(server): State<Arc<Server>>,
     Path(name): Path<String>,
-    body: Option<Json<Value>>,
+    body: Result<Json<Value>, axum::extract::rejection::JsonRejection>,
 ) -> Response {
-    if !ALLOWED.contains(&name.as_str()) {
-        return (StatusCode::FORBIDDEN, Json(json!({ "error": format!("«{name}» из панели недоступен") })))
-            .into_response();
-    }
-    let mut args = body.map(|Json(v)| v).unwrap_or_else(|| json!({}));
+    // Неразобранное тело — ошибка, а не «вызов без параметров»: иначе
+    // опечатка в запросе молча запустила бы что-то не то.
+    let mut args = match body {
+        Ok(Json(v)) => v,
+        Err(e) if e.body_text().contains("Content-Type") => json!({}),
+        Err(e) => {
+            return (StatusCode::BAD_REQUEST, Json(json!({ "error": format!("запрос не разобрался: {}", e.body_text()) })))
+                .into_response()
+        }
+    };
     // Пометки из панели ставит человек, а не агент.
     if name == "mark" {
         if let Some(o) = args.as_object_mut() {
@@ -73,16 +79,29 @@ struct FileQuery {
     path: String,
 }
 
-/// Снимок из каталога результатов. Всё, что за его пределами, не отдаётся:
-/// иначе через параметр можно было бы прочитать любой файл, включая `.env`.
+/// Снимок по пути из записи (`out\photos\…`).
 async fn file(Query(q): Query<FileQuery>) -> Response {
-    let Some(path) = within(std::path::Path::new(&OUT_DIR.path()), std::path::Path::new(&q.path)) else {
+    serve_within(std::path::Path::new(&q.path)).await
+}
+
+/// Файл каталога результатов по адресу `/out/…`: демо-страницы и снимки,
+/// на которые они ссылаются относительными путями.
+async fn out_file(Path(rest): Path<String>) -> Response {
+    serve_within(&std::path::Path::new(&OUT_DIR.path()).join(rest)).await
+}
+
+/// Отдать файл, только если он внутри каталога результатов и нужного типа.
+/// Иначе через адрес можно было бы прочитать любой файл, включая `.env`.
+async fn serve_within(candidate: &std::path::Path) -> Response {
+    let Some(path) = within(std::path::Path::new(&OUT_DIR.path()), candidate) else {
         return StatusCode::FORBIDDEN.into_response();
     };
     let mime = match path.extension().and_then(|e| e.to_str()) {
         Some("png") => "image/png",
         Some("jpg" | "jpeg") => "image/jpeg",
         Some("webp") => "image/webp",
+        Some("html") => "text/html; charset=utf-8",
+        Some("css") => "text/css; charset=utf-8",
         _ => return StatusCode::FORBIDDEN.into_response(),
     };
     match tokio::fs::read(&path).await {
