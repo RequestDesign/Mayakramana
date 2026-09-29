@@ -32,7 +32,14 @@ pub async fn serve(port: u16) -> Result<(), Box<dyn std::error::Error>> {
         .route("/file", get(file))
         .with_state(server);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    // По умолчанию только эта машина. В контейнере слушаем все интерфейсы
+    // (PANEL_BIND=0.0.0.0), а наружу порт публикуется лишь на 127.0.0.1
+    // сервера: входа в панели нет, и в интернет она смотреть не должна.
+    let ip: std::net::IpAddr = std::env::var("PANEL_BIND")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(std::net::IpAddr::from([127, 0, 0, 1]));
+    let addr = SocketAddr::new(ip, port);
     let listener = tokio::net::TcpListener::bind(addr).await?;
     println!("Панель: http://{addr}  (Ctrl+C — остановить)");
     axum::serve(listener, app).await?;

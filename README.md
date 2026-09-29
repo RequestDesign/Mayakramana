@@ -269,6 +269,24 @@ forge upload [коллекция…]                                       за�
 
 ## Развёртывание
 
+Всё нужное — в репозитории: `Dockerfile`, `docker-compose.yml`, пример
+окружения `.env.example`. На сервере рядом с Nexorium:
+
+```bash
+git clone … && cd Mayakramana
+cp .env.example .env        # ключи, пространство, OUTBOUND_PROXY
+docker compose up -d --build
+docker compose exec synthforge forge run doctor 100 --budget 5
+ssh -L 8787:127.0.0.1:8787 <сервер>   # панель: http://127.0.0.1:8787
+```
+
+Контейнер в сети `global-edge-network` и ходит в Nexorium по внутреннему
+адресу `http://nexorium:8200/api/v1`. Очередь сессий и копия результатов — на
+томе `synthforge_data`. Панель без входа, поэтому её порт опубликован только
+на `127.0.0.1` сервера. Каждый пуш проверяется на GitHub: тесты и сборка образа
+(`.github/workflows/check.yml`).
+
+
 Сервер, доступ и особенности канала — в инструкции по серверу. Существенное:
 
 - контейнер публикуется через общий `caddy-gateway`, порт наружу не пробрасывается;

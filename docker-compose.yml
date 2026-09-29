@@ -1,0 +1,36 @@
+# synthforge на сервере рядом с Nexorium.
+#
+#   docker compose up -d --build            панель
+#   docker compose exec synthforge forge run doctor 100 --budget 5
+#   ssh -L 8787:127.0.0.1:8787 <сервер>     панель в браузере: http://127.0.0.1:8787
+#
+# В .env рядом: NEXORIUM_BASE=http://nexorium:8200/api/v1 (внутренний адрес —
+# минует Caddy и внешний канал), NEXORIUM_SPACE, NEXORIUM_KEY, ключи моделей и
+# OUTBOUND_PROXY: с сервера OpenAI и x.ai напрямую недоступны.
+
+services:
+  synthforge:
+    build: .
+    container_name: synthforge
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Пути внутри контейнера, а не из .env разработчика.
+      - SYNTHFORGE_DB=/data/synthforge.db
+      - SYNTHFORGE_OUT=/data/out
+      - PANEL_BIND=0.0.0.0
+    volumes:
+      - synthforge_data:/data
+    # Входа в панели нет: порт только на 127.0.0.1 сервера, доступ — через
+    # SSH-туннель. Наружу через Caddy не публиковать.
+    ports:
+      - "127.0.0.1:8787:8787"
+    networks:
+      - global-edge-network
+
+networks:
+  global-edge-network:
+    external: true
+
+volumes:
+  synthforge_data:
