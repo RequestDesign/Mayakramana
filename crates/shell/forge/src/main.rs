@@ -34,7 +34,34 @@ use synthforge_store::{NewAnnotation, Store, Target};
 
 const TEXT_MODEL: &str = "grok-4-fast";
 const IMAGE_MODEL: &str = "gpt-image-1";
-const OUT_DIR: &str = "out";
+/// Куда складываются результаты: `out/` или каталог из `SYNTHFORGE_OUT`.
+/// Отдельный каталог нужен, чтобы черновые прогоны (модели v2) не смешивались
+/// с рабочими данными, из которых собираются центры.
+const OUT_DIR: OutDir = OutDir;
+
+#[derive(Clone, Copy)]
+struct OutDir;
+
+impl OutDir {
+    fn path(self) -> String {
+        std::env::var("SYNTHFORGE_OUT")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .unwrap_or_else(|| "out".into())
+    }
+}
+
+impl std::fmt::Display for OutDir {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.path())
+    }
+}
+
+impl From<OutDir> for std::path::PathBuf {
+    fn from(d: OutDir) -> Self {
+        d.path().into()
+    }
+}
 
 #[tokio::main]
 async fn main() {
@@ -1019,7 +1046,7 @@ async fn cmd_site() -> R {
         return Ok(());
     }
 
-    let n = site::build(OUT_DIR, &pools, &centers)?;
+    let n = site::build(&OUT_DIR.path(), &pools, &centers)?;
     let index = std::fs::canonicalize(format!("{OUT_DIR}/site/index.html"))?;
     println!("Страниц центров: {n}");
     println!("Открыть: {}", index.display().to_string().trim_start_matches(r"\\?\"));

@@ -18,3 +18,4 @@ smoke-portrait.png
 # логи
 *.log
 /logs/
+/out-v2/
