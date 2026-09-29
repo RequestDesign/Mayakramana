@@ -2144,6 +2144,8 @@ name = "synthforge-engine"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "image",
+ "rand 0.8.7",
  "serde",
  "serde_json",
  "synthforge-params",

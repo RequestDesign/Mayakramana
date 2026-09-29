@@ -90,7 +90,9 @@ impl AssetStore for FsAssetStore {
             .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '_' })
             .collect();
 
-        let path = dir.join(format!("{safe}-{role}.png"));
+        // Формат — по содержимому: снимок после доводки уже JPEG.
+        let ext = if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) { "jpg" } else { "png" };
+        let path = dir.join(format!("{safe}-{role}.{ext}"));
         tokio::fs::write(&path, bytes)
             .await
             .map_err(|e| PortError::Unavailable(format!("запись {}: {e}", path.display())))?;
@@ -261,8 +263,18 @@ async fn render_one(
         cost_usd: rendered.usage.cost_usd,
     };
 
+    // Доводка: снять «генеративную» тонировку, гиперрезкость и одинаковость
+    // кадра. Если не вышло — лучше сырой снимок, чем никакого.
+    let image = match crate::finish_photo(&rendered.png, &format!("{}#{role}", payload.entity_key)) {
+        Ok(b) => b,
+        Err(e) => {
+            tracing::warn!(entity = %payload.entity_key, error = %e, "доводка снимка не удалась");
+            rendered.png.clone()
+        }
+    };
+
     let path = assets
-        .put(&job.session_id, &payload.entity_key, &role, &rendered.png)
+        .put(&job.session_id, &payload.entity_key, &role, &image)
         .await
         .map_err(Error::Port)?;
 
@@ -273,7 +285,7 @@ async fn render_one(
             job.id,
             &role,
             &path,
-            rendered.png.len() as i64,
+            image.len() as i64,
             rendered.usage.cost_usd,
         )
         .await?;

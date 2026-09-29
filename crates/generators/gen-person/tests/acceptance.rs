@@ -718,3 +718,32 @@ fn director_v2_years_before_field_are_legitimate() {
     let r = g.accept_text(&row, &answer);
     assert!(r.is_ok(), "{r:?}");
 }
+
+/// Портреты серии не должны сниматься по одному шаблону: кадр, поворот,
+/// момент, техника и цвет одежды приходят параметрами, а шаблон больше не
+/// требует у всех «погрудный кадр, взгляд в камеру».
+#[test]
+fn portrait_prompts_vary_composition_and_ban_the_ai_look() {
+    let g = generator();
+    let rows = g.plan(&GenSpec::new(40).seed(12)).unwrap();
+    let prompts: Vec<String> = rows.iter().map(|r| g.image_requests(r)[0].full_prompt()).collect();
+
+    for key in ["Кадр:", "Поворот:", "Момент съёмки:", "Кто и чем снимал:", "Цвет одежды:"] {
+        assert!(prompts.iter().all(|p| p.contains(key)), "в промпте нет «{key}»");
+    }
+    assert!(!prompts[0].contains("Погрудный кадр, взгляд в камеру"), "старый шаблон вернулся");
+    assert!(prompts[0].contains("тонировк"), "нет запрета на тонировку");
+
+    let distinct = |label: &str| {
+        prompts
+            .iter()
+            .filter_map(|p| p.lines().find(|l| l.starts_with(label)).map(str::to_string))
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+    };
+    assert!(distinct("Поворот:") >= 4, "повороты однообразны");
+    assert!(distinct("Кадр:") >= 3, "кадры однообразны");
+    assert!(distinct("Выражение лица:") >= 5, "выражения однообразны");
+
+    println!("{}", prompts[0]);
+}

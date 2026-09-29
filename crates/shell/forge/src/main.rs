@@ -12,6 +12,7 @@
 //! forge feedback <сессия>                  — сводка приёмки
 //! forge mcp                                — агент по протоколу (MCP поверх stdio)
 //! forge upload   [коллекция…]              — залить out/*.jsonl в Nexorium
+//! forge refinish                           — довести уже сделанные снимки
 //! forge panel    [порт]                    — веб-панель: прогоны, пауза, приёмка
 //! ```
 //!
@@ -94,6 +95,7 @@ async fn main() {
         "photos" => cmd_photos(&args).await,
         "mcp" => mcp::serve().await,
         "upload" => cmd_upload(&args).await,
+        "refinish" => cmd_refinish(),
         "panel" => panel::serve(arg(&args, 1).and_then(|p| p.parse().ok()).unwrap_or(8787)).await,
         _ => {
             usage();
@@ -877,8 +879,10 @@ async fn cmd_photos(args: &[String]) -> R {
                 }
                 match model.render(req).await {
                     Ok(img) => {
-                        rendered.insert(role.clone(), img.png.clone());
-                        let path = assets.put("photos", &k, &role, &img.png).await?;
+                        let shot = synthforge_engine::finish_photo(&img.png, &format!("{k}#{role}"))
+                            .unwrap_or_else(|_| img.png.clone());
+                        rendered.insert(role.clone(), shot.clone());
+                        let path = assets.put("photos", &k, &role, &shot).await?;
                         spent += img.usage.cost_usd;
                         made += 1;
                         println!("  {kind:<13} {role:<9} {}", rec.get("full_name").and_then(|v| v.as_str()).unwrap_or(&k));
@@ -1054,6 +1058,42 @@ async fn upload_photos(nx: &synthforge_nexorium::Nexorium) -> Result<String, Str
         }
     }
     Ok(format!("photos         загружено снимков {uploaded} · обновлено записей {records}"))
+}
+
+/// Довести уже сделанные снимки: тонировка, кадр, резкость, шум.
+///
+/// Рядом с оригиналом кладётся JPEG, карта снимков переключается на него.
+/// Оригиналы не трогаются: доводку можно переделать с другими настройками.
+fn cmd_refinish() -> R {
+    let map_path = format!("{OUT_DIR}/photos.json");
+    let mut map = read_photo_map(&map_path);
+    let mut done = 0usize;
+    for (key, shots) in map.iter_mut() {
+        for shot in shots.iter_mut() {
+            let Some(path) = shot.get("path").and_then(|v| v.as_str()).map(str::to_string) else { continue };
+            // Уже доведённый снимок — это JPEG рядом с исходным PNG.
+            let original = shot
+                .get("original")
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+                .unwrap_or_else(|| path.clone());
+            let role = shot.get("role").and_then(|v| v.as_str()).unwrap_or("image").to_string();
+            let bytes = std::fs::read(&original).map_err(|e| format!("{original}: {e}"))?;
+            let finished = synthforge_engine::finish_photo(&bytes, &format!("{key}#{role}"))
+                .map_err(|e| format!("{original}: {e}"))?;
+            let out = std::path::Path::new(&original).with_extension("jpg");
+            std::fs::write(&out, &finished)?;
+            if let Some(o) = shot.as_object_mut() {
+                o.insert("original".into(), serde_json::json!(original));
+                o.insert("path".into(), serde_json::json!(out.display().to_string()));
+            }
+            done += 1;
+        }
+    }
+    std::fs::write(&map_path, serde_json::to_string_pretty(&map)?)?;
+    println!("Доведено снимков: {done}. Оригиналы на месте, карта снимков переключена на JPEG.");
+    println!("Страницы: forge site");
+    Ok(())
 }
 
 /// Перекодировать снимок в JPEG для публикации.

@@ -101,9 +101,16 @@ impl OpenAiImages {
     async fn edit(&self, req: &ImageRequest, reference: &[u8]) -> Result<Vec<u8>> {
         let url = format!("{}/images/edits", self.cfg.base_url.trim_end_matches('/'));
 
+        // Опора может быть уже обработанным снимком в JPEG — подписываем по
+        // содержимому, а не по привычке.
+        let (name, mime) = if reference.starts_with(&[0xFF, 0xD8, 0xFF]) {
+            ("reference.jpg", "image/jpeg")
+        } else {
+            ("reference.png", "image/png")
+        };
         let part = reqwest::multipart::Part::bytes(reference.to_vec())
-            .file_name("reference.png")
-            .mime_str("image/png")
+            .file_name(name)
+            .mime_str(mime)
             .map_err(|e| Error::Config(format!("референс: {e}")))?;
 
         let form = reqwest::multipart::Form::new()

@@ -26,11 +26,13 @@ use synthforge_store::{
 };
 
 mod error;
+mod finish;
 mod images;
 mod jsonl;
 mod mirror;
 
 pub use error::{Error, Result};
+pub use finish::finish_photo;
 pub use images::{FsAssetStore, ImageJobPayload, ImagePipeline};
 pub use jsonl::JsonlStore;
 pub use mirror::MirrorStore;
