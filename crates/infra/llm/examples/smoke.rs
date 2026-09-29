@@ -15,8 +15,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use synthforge_llm::{
-    Catalog, Effort, ImageModel, ImageRequest, ImageSize, Message, OpenAiCompatText,
-    OpenAiImages, ProviderConfig, TextModel, TextRequest,
+    Catalog, Effort, ImageRequest, ImageSize, Message, OpenAiCompatText, OpenAiImages,
+    ProviderConfig, TextRequest,
 };
 
 #[tokio::main]

@@ -12,12 +12,14 @@
 //! forge feedback <сессия>                  — сводка приёмки
 //! forge mcp                                — агент по протоколу (MCP поверх stdio)
 //! forge upload   [коллекция…]              — залить out/*.jsonl в Nexorium
+//! forge panel    [порт]                    — веб-панель: прогоны, пауза, приёмка
 //! ```
 //!
 //! Это слой оболочки: здесь и только здесь генератор встречается с
 //! инфраструктурой. Сам генератор о существовании Grok и OpenAI не знает.
 
 mod mcp;
+mod panel;
 mod site;
 
 use std::sync::Arc;
@@ -92,6 +94,7 @@ async fn main() {
         "photos" => cmd_photos(&args).await,
         "mcp" => mcp::serve().await,
         "upload" => cmd_upload(&args).await,
+        "panel" => panel::serve(arg(&args, 1).and_then(|p| p.parse().ok()).unwrap_or(8787)).await,
         _ => {
             usage();
             return;

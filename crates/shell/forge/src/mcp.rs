@@ -96,7 +96,20 @@ impl Server {
         let name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
         let args = params.get("arguments").cloned().unwrap_or(json!({}));
 
-        let out = match name {
+        match self.tool(name, &args).await {
+            Ok(v) => json!({
+                "content": [{ "type": "text", "text": serde_json::to_string_pretty(&v).unwrap_or_default() }],
+                "structuredContent": v,
+            }),
+            Err(e) => json!({ "content": [{ "type": "text", "text": e }], "isError": true }),
+        }
+    }
+
+    /// Инструмент по имени. Общий для агента (MCP) и веб-панели: у человека в
+    /// браузере и у агента одни и те же рычаги и одни и те же ограничения.
+    pub async fn tool(&self, name: &str, args: &Value) -> Result<Value, String> {
+        let args = args.clone();
+        match name {
             "kinds" => Ok(kinds()),
             "plan" => plan(&args),
             "sessions" => self.sessions().await,
@@ -108,14 +121,6 @@ impl Server {
             "mark" => self.mark(&args).await,
             "feedback" => self.feedback(&args).await,
             other => Err(format!("инструмента «{other}» нет")),
-        };
-
-        match out {
-            Ok(v) => json!({
-                "content": [{ "type": "text", "text": serde_json::to_string_pretty(&v).unwrap_or_default() }],
-                "structuredContent": v,
-            }),
-            Err(e) => json!({ "content": [{ "type": "text", "text": e }], "isError": true }),
         }
     }
 
@@ -259,6 +264,20 @@ impl Server {
             .take(limit)
             .collect();
 
+        // Снимки, сделанные отдельно командой `photos`, лежат в своей карте —
+        // подмешиваем их к записям, как это делают демо-страницы.
+        let photos = crate::read_photo_map(&format!("{OUT_DIR}/photos.json"));
+        let records: Vec<Value> = records
+            .into_iter()
+            .map(|mut r| {
+                let key = r.get("natural_key").and_then(|v| v.as_str()).map(str::to_string);
+                if let (Some(shots), Some(o)) = (key.and_then(|k| photos.get(&k)), r.as_object_mut()) {
+                    o.entry("images").or_insert_with(|| Value::Array(shots.clone()));
+                }
+                r
+            })
+            .collect();
+
         Ok(json!({ "session": session, "records": records }))
     }
 
@@ -288,7 +307,9 @@ impl Server {
             "bad" => return Err("брак без меток бесполезен для доработки: укажите tags".into()),
             other => return Err(format!("verdict «{other}»: ожидается good или bad")),
         };
-        a = a.on_job(job.id).by("agent");
+        // Кто поставил пометку: агент по протоколу или человек из панели.
+        let author = args.get("author").and_then(|v| v.as_str()).unwrap_or("agent");
+        a = a.on_job(job.id).by(author);
         if let Some(c) = args.get("comment").and_then(|v| v.as_str()) {
             a = a.comment(c);
         }

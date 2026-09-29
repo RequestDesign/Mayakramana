@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>synthforge — панель</title>
+<style>
+  :root { --bg:#f6f5f2; --card:#fff; --ink:#1d1d1b; --muted:#6b6b66; --line:#e3e1dc;
+          --ok:#2f7d4f; --bad:#b3403a; --accent:#34568b; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:14px 24px; border-bottom:1px solid var(--line); background:var(--card); display:flex; gap:16px; align-items:baseline; }
+  header h1 { font-size:18px; margin:0; }
+  header .note { color:var(--muted); font-size:13px; }
+  main { padding:20px 24px; max-width:1200px; margin:0 auto; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); font-size:14px; vertical-align:middle; }
+  th { color:var(--muted); font-weight:500; }
+  tr.row:hover { background:#faf9f6; cursor:pointer; }
+  .bar { width:140px; height:8px; background:var(--line); border-radius:4px; overflow:hidden; display:inline-block; vertical-align:middle; }
+  .bar i { display:block; height:100%; background:var(--accent); }
+  .st { font-size:12px; padding:2px 8px; border-radius:10px; background:var(--line); }
+  .st.running { background:#dfe8f5; } .st.paused { background:#f6e8cf; } .st.done { background:#dcefe3; } .st.failed { background:#f4dcda; }
+  button { font:inherit; font-size:13px; padding:4px 10px; border:1px solid var(--line); background:var(--card); border-radius:6px; cursor:pointer; }
+  button:hover { border-color:var(--muted); }
+  button.good { color:var(--ok); border-color:var(--ok); } button.bad { color:var(--bad); border-color:var(--bad); }
+  .back { margin-bottom:14px; }
+  .summary { display:flex; gap:24px; flex-wrap:wrap; background:var(--card); border:1px solid var(--line); padding:12px 16px; margin-bottom:16px; }
+  .summary b { display:block; font-size:20px; }
+  .summary span { color:var(--muted); font-size:13px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(360px, 1fr)); gap:14px; }
+  .card { background:var(--card); border:1px solid var(--line); padding:14px 16px; display:flex; flex-direction:column; gap:8px; }
+  .card h3 { margin:0; font-size:16px; } .card .sub { color:var(--muted); font-size:13px; }
+  .card img { width:100%; max-height:260px; object-fit:cover; border-radius:4px; }
+  .card .text { font-size:14px; white-space:pre-wrap; }
+  .card .text em { color:var(--muted); font-style:normal; font-size:12px; display:block; }
+  .mark { display:flex; gap:6px; flex-wrap:wrap; align-items:center; border-top:1px solid var(--line); padding-top:8px; }
+  .mark input { font:inherit; font-size:13px; padding:4px 6px; border:1px solid var(--line); border-radius:6px; flex:1; min-width:120px; }
+  .marked { font-size:13px; }
+  .marked.good { color:var(--ok); } .marked.bad { color:var(--bad); }
+  .muted { color:var(--muted); }
+  #toast { position:fixed; bottom:16px; right:16px; background:var(--ink); color:#fff; padding:8px 14px; border-radius:6px; display:none; font-size:14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>synthforge</h1>
+  <span class="note">панель прогонов · только для внутреннего просмотра</span>
+</header>
+<main id="app"></main>
+<div id="toast"></div>
+<script>
+const $app = document.getElementById('app');
+let timer = null;
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function api(tool, args = {}) {
+  const r = await fetch('/api/' + tool, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(args) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.status);
+  return j.data;
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2500);
+}
+
+const bar = p => `<span class="bar"><i style="width:${Math.min(100, p)}%"></i></span> ${p.toFixed(0)}%`;
+const money = v => v == null ? '—' : '$' + Number(v).toFixed(4);
+
+// ------------------------------------------------------------- список прогонов
+
+async function showSessions() {
+  clearInterval(timer);
+  const render = async () => {
+    let data;
+    try { data = await api('sessions'); } catch (e) { $app.innerHTML = `<p>Ошибка: ${esc(e.message)}</p>`; return; }
+    const rows = data.sessions.slice().reverse().map(s => `
+      <tr class="row" data-id="${esc(s.session)}">
+        <td>${esc(s.kind)}</td>
+        <td><span class="st ${esc(s.status)}">${esc(s.status)}</span></td>
+        <td>${bar(s.percent)}</td>
+        <td>${money(s.spent_usd)} / ${money(s.budget_usd)}</td>
+        <td class="muted">${esc(s.session.slice(0, 8))}</td>
+        <td>${s.status === 'paused'
+              ? `<button data-act="resume" data-id="${esc(s.session)}">Продолжить</button>`
+              : s.status === 'running' ? `<button data-act="pause" data-id="${esc(s.session)}">Пауза</button>` : ''}</td>
+      </tr>`).join('');
+    $app.innerHTML = data.sessions.length
+      ? `<table><tr><th>Вид</th><th>Статус</th><th>Готово</th><th>Потрачено / бюджет</th><th>Сессия</th><th></th></tr>${rows}</table>`
+      : '<p class="muted">Прогонов пока не было.</p>';
+  };
+  await render();
+  timer = setInterval(render, 4000);
+}
+
+// ------------------------------------------------------------------ сессия
+
+const TITLE = ['full_name', 'center_name', 'title'];
+const SUB = ['specialty', 'path_to_work', 'education', 'background', 'building_type', 'focus', 'segment'];
+const TEXTS = [['biography','Биография'], ['professional_path','Путь'], ['quote','Цитата'],
+               ['about','О центре'], ['approach_text','Подход'], ['history','История'],
+               ['description','Описание'], ['territory','Территория'], ['rooms','Комнаты'], ['stages','Этапы']];
+
+function card(r) {
+  const title = TITLE.map(k => r[k]).find(Boolean) || r.natural_key;
+  const sub = [r.age ? r.age + ' лет' : null, SUB.map(k => r[k]).find(Boolean)].filter(Boolean).join(' · ');
+  const imgs = (r.images || []).filter(i => i.path).map(i =>
+    `<img src="/file?path=${encodeURIComponent(i.path)}" alt="${esc(i.role)}" loading="lazy">`).join('');
+  const texts = TEXTS.filter(([k]) => r[k]).map(([k, label]) =>
+    `<div class="text"><em>${label}</em>${esc(Array.isArray(r[k]) ? r[k].join('\n') : r[k])}</div>`).join('');
+  return `<div class="card" data-key="${esc(r.natural_key)}">
+    <h3>${esc(title)}</h3><div class="sub">${esc(sub)}</div>${imgs}${texts}
+    <div class="mark">
+      <button class="good" data-verdict="good">Принять</button>
+      <input placeholder="метки через запятую: штамп, анкета, факты" data-f="tags">
+      <input placeholder="комментарий" data-f="comment">
+      <button class="bad" data-verdict="bad">Брак</button>
+      <span class="marked"></span>
+    </div></div>`;
+}
+
+async function showSession(id) {
+  clearInterval(timer);
+  $app.innerHTML = `<button class="back">← все прогоны</button><div id="sum"></div><div class="cards" id="cards"><p class="muted">Загрузка…</p></div>`;
+  $app.querySelector('.back').onclick = showSessions;
+
+  const renderSummary = async () => {
+    try {
+      const [p, f] = await Promise.all([api('progress', { session: id }), api('feedback', { session: id })]);
+      const sys = (f.systemic || []).length ? ` · системные дефекты: ${f.systemic.map(esc).join(', ')}` : '';
+      document.getElementById('sum').innerHTML = `<div class="summary">
+        <div><b>${p.percent.toFixed(0)}%</b><span>готово</span></div>
+        <div><b>${p.done}</b><span>принято моделью</span></div>
+        <div><b>${p.dead}</b><span>брак приёмки</span></div>
+        <div><b>${p.pending + p.running}</b><span>в очереди</span></div>
+        <div><b>${money(p.spent_usd)}</b><span>из ${money(p.budget_usd)}</span></div>
+        <div><b>${f.good} / ${f.bad}</b><span>пометки: принято / брак${sys}</span></div>
+        <div>${p.status === 'paused'
+            ? `<button id="toggle" data-act="resume">Продолжить</button>`
+            : p.status === 'running' ? `<button id="toggle" data-act="pause">Пауза</button>` : `<span class="st ${esc(p.status)}">${esc(p.status)}</span>`}</div>
+      </div>`;
+      const t = document.getElementById('toggle');
+      if (t) t.onclick = () => act(t.dataset.act, id).then(renderSummary);
+    } catch (e) { document.getElementById('sum').textContent = 'Ошибка: ' + e.message; }
+  };
+
+  await renderSummary();
+  timer = setInterval(renderSummary, 4000);
+
+  try {
+    const d = await api('show', { session: id, limit: 50 });
+    document.getElementById('cards').innerHTML = d.records.length
+      ? d.records.map(card).join('')
+      : '<p class="muted">Готовых записей этой сессии пока нет.</p>';
+  } catch (e) { document.getElementById('cards').textContent = 'Ошибка: ' + e.message; }
+}
+
+async function act(what, id) {
+  try { await api(what, { session: id }); toast(what === 'pause' ? 'Пауза: встанет после текущей пачки' : 'Продолжено'); }
+  catch (e) { toast('Ошибка: ' + e.message); }
+}
+
+// ----------------------------------------------------------------- события
+
+$app.addEventListener('click', async ev => {
+  const b = ev.target.closest('button');
+  const row = ev.target.closest('tr.row');
+  if (b && b.dataset.act) { ev.stopPropagation(); await act(b.dataset.act, b.dataset.id); return; }
+  if (b && b.dataset.verdict) {
+    const c = b.closest('.card');
+    const val = f => c.querySelector(`[data-f="${f}"]`).value.trim();
+    const tags = val('tags').split(',').map(s => s.trim()).filter(Boolean);
+    const session = location.hash.slice(1);
+    try {
+      await api('mark', { session, entity_key: c.dataset.key, verdict: b.dataset.verdict, tags, comment: val('comment') || undefined });
+      const m = c.querySelector('.marked');
+      m.className = 'marked ' + b.dataset.verdict;
+      m.textContent = b.dataset.verdict === 'good' ? '✓ принято' : '✗ брак' + (tags.length ? ': ' + tags.join(', ') : '');
+    } catch (e) { toast(e.message); }
+    return;
+  }
+  if (row) location.hash = row.dataset.id;
+});
+
+window.addEventListener('hashchange', route);
+function route() { const id = location.hash.slice(1); id ? showSession(id) : showSessions(); }
+route();
+</script>
+</body>
+</html>

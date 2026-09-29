@@ -11,6 +11,8 @@ name = "forge"
 path = "src/main.rs"
 
 [dependencies]
+axum = { version = "0.7", default-features = false, features = ["http1", "json", "query", "tokio"] }
+serde = { workspace = true }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 synthforge-params = { workspace = true }
 synthforge-ports = { workspace = true }
