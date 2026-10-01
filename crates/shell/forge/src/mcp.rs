@@ -618,12 +618,13 @@ impl Server {
 
 fn kinds() -> Value {
     let pool = |c: &str| crate::load_pool(c).len();
-    let row = |kind: &str, what: &str, collection: &str, draft: bool| {
+    let row = |kind: &str, what: &str, collection: &str, legacy: bool| {
         json!({
             "kind": kind,
             "what": what,
             "collection": collection,
-            "draft": draft,
+            "draft": legacy,
+            "legacy": legacy,
             "dictionary": dictionary_file(kind),
             "in_pool": pool(collection),
         })
@@ -637,14 +638,14 @@ fn kinds() -> Value {
             row("place", "Здание с территорией", "places", false),
             row("program", "Программа лечения", "programs", false),
             row("center", "Центр — сборка из готовых людей, здания и программы", "centers", false),
-            row("doctor-v2", "Врач, модель v2", "doctors", true),
-            row("consultant-v2", "Консультант, модель v2", "consultants", true),
-            row("psychologist-v2", "Психолог, модель v2", "psychologists", true),
-            row("director-v2", "Руководитель, модель v2", "directors", true),
-            row("place-v2", "Здание, модель v2", "places", true),
-            row("program-v2", "Программа, модель v2", "programs", true),
+            row("doctor-v1", "Врач, прежняя модель", "doctors", true),
+            row("consultant-v1", "Консультант, прежняя модель", "consultants", true),
+            row("psychologist-v1", "Психолог, прежняя модель", "psychologists", true),
+            row("director-v1", "Руководитель, прежняя модель", "directors", true),
+            row("place-v1", "Здание, прежняя модель", "places", true),
+            row("program-v1", "Программа, прежняя модель", "programs", true),
         ],
-        "note": "v2 — расширенные модели на согласовании; центр собирается только из уже готовых записей",
+        "note": "основные модели — v2 (расширенные); прежние — с суффиксом -v1; центр собирается только из готовых записей",
     })
 }
 
@@ -763,11 +764,7 @@ fn mode_label(spec: &Value) -> String {
 
 /// Файл словаря для вида.
 fn dictionary_file(kind: &str) -> String {
-    match kind {
-        "center" => "dictionaries/object-center.json".into(),
-        k if k.starts_with("place") || k.starts_with("program") => format!("dictionaries/object-{k}.json"),
-        k => format!("dictionaries/role-{k}.json"),
-    }
+    crate::dictionary_path(kind)
 }
 
 /// Словарь целиком: параметры с диапазонами, жёсткие правила и корреляции.

@@ -47,6 +47,10 @@
      "domain": {"kind": "derived"}},
     {"key": "about", "title": "О центре", "group": "текст", "domain": {"kind": "derived"}},
     {"key": "approach_text", "title": "Как здесь работают", "group": "текст", "domain": {"kind": "derived"}},
+    {"key": "opening", "title": "С чего начать", "group": "подача", "usage": "text", "mention": "background",
+     "directive": "с чего начать текст о центре (не со слов «Центр расположен / находится»)",
+     "note": "Назначается при сборке по ключу здания: просьба «начинай по-разному» даёт один новый зачин на всех.",
+     "domain": {"kind": "derived"}},
     {"key": "history", "title": "История центра", "group": "текст", "domain": {"kind": "derived"}}
   ]
 }

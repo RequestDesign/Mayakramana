@@ -19,3 +19,4 @@ smoke-portrait.png
 *.log
 /logs/
 /out-v2/
+/out-check*/

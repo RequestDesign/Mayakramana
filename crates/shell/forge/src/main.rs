@@ -188,30 +188,43 @@ async fn open_store() -> Result<Store, Box<dyn std::error::Error>> {
     Ok(Store::open(path).await?)
 }
 
-fn load_generator(kind: &str) -> Result<Arc<dyn Generator>, Box<dyn std::error::Error>> {
-    // Объекты — отдельный генератор со своей логикой: без имён и биографий,
-    // зато с несколькими снимками разного назначения.
-    match kind {
-        "place" | "place-v2" => {
-            let m = ParamModel::load(format!("dictionaries/object-{kind}.json"))?;
-            return Ok(Arc::new(synthforge_gen_object::ObjectGenerator::place(m)));
-        }
-        "program" | "program-v2" => {
-            let m = ParamModel::load(format!("dictionaries/object-{kind}.json"))?;
-            return Ok(Arc::new(synthforge_gen_object::ObjectGenerator::program(m)));
-        }
-        _ => {}
-    }
+/// Основа вида без суффикса версии: `doctor-v1`, `doctor-v2` → `doctor`.
+fn base_kind(kind: &str) -> &str {
+    kind.trim_end_matches("-v1").trim_end_matches("-v2")
+}
 
+/// Файл словаря для вида.
+///
+/// С 01.10.2026 основные модели — v2 (согласованы): `doctor` берёт
+/// `role-doctor-v2.json`. Прежние доступны как `doctor-v1`. Имя `doctor-v2`
+/// оставлено рабочим: так записаны сессии, начатые до переключения.
+fn dictionary_path(kind: &str) -> String {
+    let legacy = kind.ends_with("-v1");
+    let base = base_kind(kind);
+    let suffix = if legacy { "" } else { "-v2" };
+    match base {
+        "center" => "dictionaries/object-center.json".into(),
+        "place" | "program" => format!("dictionaries/object-{base}{suffix}.json"),
+        _ => format!("dictionaries/role-{base}{suffix}.json"),
+    }
+}
+
+fn load_generator(kind: &str) -> Result<Arc<dyn Generator>, Box<dyn std::error::Error>> {
     if kind == "center" {
         return center_generator(false);
     }
+    const KNOWN: &[&str] = &["doctor", "consultant", "psychologist", "director", "place", "program"];
+    if !KNOWN.contains(&base_kind(kind)) {
+        return Err(format!("неизвестный вид «{kind}»: {}, center; прежние модели — с суффиксом -v1", KNOWN.join(", ")).into());
+    }
+    let model = ParamModel::load(dictionary_path(kind))?;
 
-    let model = ParamModel::load(format!("dictionaries/role-{kind}.json"))?;
-
-    // «-v2» — черновики расширенных моделей на согласовании: словарь другой,
-    // а приёмка текста та же, что у роли.
-    let mut g = match kind.trim_end_matches("-v2") {
+    // Объекты — отдельный генератор со своей логикой: без имён и биографий,
+    // зато с несколькими снимками разного назначения. Приёмка текста у версий
+    // одна — разные только словари.
+    let mut g = match base_kind(kind) {
+        "place" => return Ok(Arc::new(synthforge_gen_object::ObjectGenerator::place(model))),
+        "program" => return Ok(Arc::new(synthforge_gen_object::ObjectGenerator::program(model))),
         "doctor" => PersonGenerator::doctor(model),
         "consultant" => PersonGenerator::consultant(model),
         "psychologist" => PersonGenerator::psychologist(model),

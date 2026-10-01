@@ -234,14 +234,14 @@ function readConds(box, params) {
 
 async function pageNew() {
   const ks = await kinds();
-  const opt = k => `<option value="${esc(k.kind)}">${esc(k.what)}${k.draft ? ' — черновик' : ''} · в пуле ${k.in_pool}</option>`;
+  const opt = k => `<option value="${esc(k.kind)}">${esc(k.what)}${k.legacy ? ' — прежняя' : ''} · в пуле ${k.in_pool}</option>`;
   $app.innerHTML = `<h2>Новый прогон</h2>
   <div class="grid" style="grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items:start">
     <form class="card" id="f" autocomplete="off">
       <div class="row">
         <label class="f" style="flex:1; min-width:260px">Что генерировать
           <select name="kind"><optgroup label="Рабочие модели">${ks.filter(k => !k.draft).map(opt).join('')}</optgroup>
-          <optgroup label="Модели v2 на согласовании">${ks.filter(k => k.draft).map(opt).join('')}</optgroup></select></label>
+          <optgroup label="Прежние модели (v1)">${ks.filter(k => k.draft).map(opt).join('')}</optgroup></select></label>
         <label class="f">Сколько <input name="count" type="number" min="1" max="2000" value="5" style="width:100px"></label>
         <label class="f">Сид <input name="seed" type="number" value="${Math.floor(Math.random() * 90000) + 10000}" style="width:110px"></label>
       </div>
@@ -301,7 +301,7 @@ async function pageNew() {
     const k = ks.find(x => x.kind === kind);
     document.getElementById('kindnote').textContent = kind === 'center'
       ? 'Центр собирается только из готовых записей: здание, программа, руководитель и команда берутся из пулов, никто не попадает в два центра.'
-      : (k.draft ? 'Черновик модели v2: пишется в те же коллекции, что и рабочая модель.' : '');
+      : (k.legacy ? 'Прежняя модель v1: пишется в те же коллекции, что и основная.' : '');
     try { params = (await dict(kind)).params; } catch { params = []; }
     document.getElementById('conds').innerHTML = '';
     document.getElementById('cohorts').innerHTML = '';
@@ -623,7 +623,7 @@ async function pageDict(kind) {
   kind = kind || 'doctor';
   $app.innerHTML = `<h2>Невидимый слой</h2>
     <div class="row" style="margin-bottom:12px">
-      <label class="f">Словарь <select id="dk">${ks.map(k => `<option value="${esc(k.kind)}" ${k.kind === kind ? 'selected' : ''}>${esc(k.what)}${k.draft ? ' — черновик' : ''}</option>`).join('')}</select></label>
+      <label class="f">Словарь <select id="dk">${ks.map(k => `<option value="${esc(k.kind)}" ${k.kind === kind ? 'selected' : ''}>${esc(k.what)}${k.legacy ? ' — прежняя' : ''}</option>`).join('')}</select></label>
       <label class="f">Найти параметр <input id="dq" placeholder="стаж, трезв, age…"></label>
       <label class="f">Выборка <input id="dn" type="number" value="500" min="50" max="5000" style="width:90px"></label>
       <button id="ddist">Распределение на выборке</button>
