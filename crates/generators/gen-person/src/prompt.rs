@@ -190,6 +190,10 @@ pub const PORTRAIT_AVOID: &[&str] = &[
     "студийный художественный свет с рисующим и контровым источником",
     "идеально выставленный свет и экспозиция, как в фотостудии",
     "поза модели из фотобанка",
+    "HDR, усиленный локальный контраст, тёмные ореолы по контурам",
+    "«документальный» зернистый стиль с приглушёнными серо-зелёными тонами",
+    "подчёркнутая фактура кожи, щетины и ткани, каждая складка прорисована",
+    "тяжёлый пристальный взгляд исподлобья",
 ];
 
 /// Схема ответа.
@@ -268,9 +272,87 @@ pub fn portrait_prompt(params_block: &str) -> String {
          огрехи кадра — строго по описанию ниже, буквально, даже если кадр \
          от этого выходит хуже: если сказано, что человек не смотрит в камеру, \
          не улыбается, свет плохой или кадр обрезан — так и должно быть. \
-         Цвет как у обычной камеры или телефона, без цветокоррекции. Кожа \
-         естественная, не отретуширована. Лицо обычного человека своего \
+         Картинка как у обычного смартфона с автообработкой: мягкие тени, \
+         нормальные живые цвета, умеренная резкость, кожа чуть сглажена \
+         шумодавом камеры, без художественной обработки. Огрехи — мелкие, \
+         как случайно вышло, а не нарочитые. Лицо обычного человека своего \
          возраста, не модели. Одежда обычная, слегка помятая, сидит как в жизни.\n\n\
          {params_block}"
     )
+}
+
+/// Короткий промпт портрета по образцу гайда OpenAI (16.11.2026).
+///
+/// Прежний длинный промпт — три десятка строк параметров и двадцать запретов —
+/// давал узнаваемую генерацию: перегруженный промпт модель усредняет, а
+/// запреты называют ровно то, чего не хочется («HDR», «фактура кожи»), и
+/// модель за эти слова цепляется. Здесь: сцена → человек → кадр → короткие
+/// общие ограничения; рамка на английском, значения параметров — как есть.
+/// `get` отдаёт значение параметра по ключу или `None`.
+pub fn portrait_prompt_short(get: &dyn Fn(&str) -> Option<String>) -> String {
+    // Подпись к значению: без неё «лёгкие» или «вытянутое» непонятно к чему.
+    let join = |keys: &[(&str, &str)]| -> String {
+        keys.iter()
+            .filter_map(|(k, label)| {
+                get(k).map(|v| if label.is_empty() { v } else { format!("{label} {v}") })
+            })
+            .collect::<Vec<_>>()
+            .join("; ")
+    };
+    let sex = get("gender").unwrap_or_default();
+    let age = get("age").unwrap_or_default();
+
+    let mut s = String::from(
+        "An unremarkable, ordinary smartphone photo of a staff member of a small \
+         Russian rehabilitation center, taken by a coworker for the center's \
+         \"Our team\" web page. Not a photoshoot.\n\n",
+    );
+    s.push_str(&format!("Person: {sex}, {age} years old. "));
+    s.push_str(&format!(
+        "Looks (in Russian): {}.\n",
+        join(&[
+            ("build", "телосложение"),
+            ("face_shape", "лицо"),
+            ("hair_color", "волосы"),
+            ("hair_state", "причёска"),
+            ("facial_hair", "на лице"),
+            ("glasses", ""),
+            ("eye_bags", "мешки под глазами"),
+            ("complexion", "цвет лица"),
+            ("skin_marks", "кожа"),
+        ])
+    ));
+    s.push_str(&format!(
+        "Wearing: {}.\n",
+        join(&[("clothing", ""), ("clothing_color", "цвет"), ("accessory", "")])
+    ));
+    s.push_str(&format!("Expression: {}.\n", join(&[("expression", "")])));
+    s.push_str(&format!(
+        "Where: {}.\n",
+        join(&[("photo_setting", ""), ("light", "свет"), ("camera", "снимал")])
+    ));
+    s.push_str(&format!(
+        "Shot: {}.\n",
+        join(&[
+            ("framing", "кадр"),
+            ("head_angle", "поворот"),
+            ("gaze", "взгляд"),
+            ("moment", ""),
+            ("photo_flaws", "огрех"),
+        ])
+    ));
+    s.push_str(
+        "\nPhotorealistic, looks like a real photo someone could have taken: \
+         normal phone camera processing, natural color balance, real skin. \
+         No retouching, no glamorization. Avoid cinematic lighting, dramatic \
+         color grading, HDR look or stylized composition. One person, no text.",
+    );
+    s
+}
+
+/// Значения, которые в короткий промпт не передаются: «отсутствие» модель
+/// всё равно попытается нарисовать.
+pub fn is_empty_visual(v: &str) -> bool {
+    let v = v.trim();
+    v.is_empty() || matches!(v, "нет" | "ничего" | "без заметных огрехов" | "без очков")
 }

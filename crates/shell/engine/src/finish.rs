@@ -38,6 +38,10 @@ struct Look {
     /// Доля размера, до которой снимок ужимается и растягивается обратно:
     /// мыльная картинка дешёвого телефона или пересланного файла.
     mush: Option<f32>,
+    /// Доля «шумодава»: смешивание с размытой копией. Модель рисует
+    /// подчёркнутую фактуру кожи и ткани с локальным контрастом, как HDR —
+    /// по этому её узнают. Телефон, наоборот, мелкую фактуру сглаживает.
+    smooth: f32,
 }
 
 impl Look {
@@ -45,13 +49,14 @@ impl Look {
         let mut r = rand::rngs::StdRng::seed_from_u64(seed ^ 0x9e37_79b9_7f4a_7c15);
         let mut span = |a: f32, b: f32| a + (b - a) * r.gen::<f32>();
         let wb = span(0.45, 0.85);
-        let saturation = span(0.82, 0.98);
-        let gamma = span(0.9, 1.1);
-        let blur = span(0.35, 0.95);
-        let noise = span(2.0, 6.5);
-        let jpeg = span(62.0, 88.0) as u8;
-        let mush = if span(0.0, 1.0) < 0.3 { Some(span(0.5, 0.72)) } else { None };
-        Self { wb, saturation, gamma, blur, noise, jpeg, mush }
+        let saturation = span(0.92, 1.02);
+        let gamma = span(0.96, 1.04);
+        let blur = span(0.3, 0.6);
+        let noise = span(1.5, 3.5);
+        let jpeg = span(74.0, 90.0) as u8;
+        let mush = if span(0.0, 1.0) < 0.15 { Some(span(0.62, 0.78)) } else { None };
+        let smooth = span(0.35, 0.6);
+        Self { wb, saturation, gamma, blur, noise, jpeg, mush, smooth }
     }
 }
 
@@ -69,6 +74,7 @@ pub fn finish_photo(bytes: &[u8], key: &str) -> Result<Vec<u8>, image::ImageErro
         Some(k) => mush(&img, k),
         None => img,
     };
+    let img = phone_smooth(&img, look.smooth);
     let mut img = imageops::blur(&img, look.blur);
     add_noise(&mut img, seed, look.noise);
 
@@ -127,6 +133,18 @@ fn resize(img: &ImageBuffer<Rgb<u8>, Vec<u8>>) -> ImageBuffer<Rgb<u8>, Vec<u8>> 
     }
     let k = LONG_SIDE as f32 / long as f32;
     imageops::resize(img, (w as f32 * k) as u32, (h as f32 * k) as u32, imageops::FilterType::Lanczos3)
+}
+
+/// Сгладить мелкую фактуру, сохранив крупные формы: смесь с размытой копией.
+fn phone_smooth(img: &ImageBuffer<Rgb<u8>, Vec<u8>>, k: f32) -> ImageBuffer<Rgb<u8>, Vec<u8>> {
+    let soft = imageops::blur(img, 1.6);
+    let mut out = img.clone();
+    for (o, s) in out.pixels_mut().zip(soft.pixels()) {
+        for c in 0..3 {
+            o.0[c] = (o.0[c] as f32 * (1.0 - k) + s.0[c] as f32 * k) as u8;
+        }
+    }
+    out
 }
 
 /// Ужать и растянуть обратно: детали теряются так, как у дешёвой камеры.
@@ -212,6 +230,6 @@ mod tests {
             (0..20).map(|i| Look::for_seed(fnv(&format!("doctor:{i}#portrait"))).jpeg).collect();
         assert!(jpegs.len() > 5, "сжатие одинаковое у всех: {jpegs:?}");
         let mushy = (0..100).filter(|i| Look::for_seed(fnv(&format!("p:{i}"))).mush.is_some()).count();
-        assert!((15..=45).contains(&mushy), "мыльных снимков {mushy} из 100");
+        assert!((5..=28).contains(&mushy), "мыльных снимков {mushy} из 100");
     }
 }

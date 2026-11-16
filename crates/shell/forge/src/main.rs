@@ -863,6 +863,9 @@ async fn cmd_photos(args: &[String]) -> R {
     let reshoot: Option<u64> = args.iter().position(|a| a == "--reshoot").map(|i| {
         args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(1)
     });
+    // --max N: снять не больше N сущностей — пробный прогон на нескольких.
+    let max_entities: Option<usize> = flag(args, "--max").and_then(|s| s.parse().ok());
+    let mut shot_entities = 0usize;
 
     let pools: std::collections::HashMap<String, serde_json::Value> =
         ["places", "programs", "directors", "doctors", "psychologists", "consultants"]
@@ -903,6 +906,10 @@ async fn cmd_photos(args: &[String]) -> R {
                 continue; // уже снято — второй раз не платим
             }
             let Some(rec) = pools.get(&k) else { continue };
+            if max_entities.is_some_and(|m| shot_entities >= m) {
+                break;
+            }
+            shot_entities += 1;
             let kind = rec.get("entity_kind").and_then(|v| v.as_str()).unwrap_or("").to_string();
             if !generators.contains_key(&kind) {
                 generators.insert(kind.clone(), load_generator(&kind)?);

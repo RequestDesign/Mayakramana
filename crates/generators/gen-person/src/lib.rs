@@ -342,11 +342,23 @@ impl Generator for PersonGenerator {
     }
 
     fn image_requests(&self, row: &ParamRow) -> Vec<ImageRequest> {
-        let visual = row.prompt_block(&self.model, PromptUsage::Visual);
-        vec![ImageRequest::new(prompt::portrait_prompt(&visual))
+        // PORTRAIT_PROMPT=long — прежний длинный русский промпт (для сравнения).
+        if std::env::var("PORTRAIT_PROMPT").as_deref() == Ok("long") {
+            let visual = row.prompt_block(&self.model, PromptUsage::Visual);
+            return vec![ImageRequest::new(prompt::portrait_prompt(&visual))
+                .role("portrait")
+                .size(ImageSize::Portrait)
+                .avoid(PORTRAIT_AVOID.iter().copied())];
+        }
+        let get = |k: &str| {
+            row.get(k)
+                .filter(|v| !v.is_null())
+                .map(|v| v.render())
+                .filter(|v| !prompt::is_empty_visual(v))
+        };
+        vec![ImageRequest::new(prompt::portrait_prompt_short(&get))
             .role("portrait")
-            .size(ImageSize::Portrait)
-            .avoid(PORTRAIT_AVOID.iter().copied())]
+            .size(ImageSize::Portrait)]
     }
 
     fn accept_text(&self, row: &ParamRow, text: &str) -> Result<AcceptedText, RejectReason> {

@@ -88,12 +88,12 @@ fn text_and_image_prompts_do_not_share_facts() {
     let images = g.image_requests(&row);
     assert_eq!(images.len(), 1);
     let img = &images[0];
-    assert!(img.prompt.contains("Выражение лица"), "{}", img.prompt);
+    assert!(img.prompt.contains("Expression:"), "{}", img.prompt);
     assert!(!img.prompt.contains("Публикаций"), "биография в промпте портрета");
+    assert!(!img.prompt.contains("Стаж"), "биография в промпте портрета");
 
-    // Запреты должны доезжать до провайдера даже без отдельного поля.
-    assert!(!img.avoid.is_empty());
-    assert!(img.full_prompt().contains("идеально симметричное лицо"));
+    // Ограничения — короткой общей строкой в самом промпте.
+    assert!(img.full_prompt().contains("No retouching"));
 }
 
 #[test]
@@ -728,11 +728,11 @@ fn portrait_prompts_vary_composition_and_ban_the_ai_look() {
     let rows = g.plan(&GenSpec::new(40).seed(12)).unwrap();
     let prompts: Vec<String> = rows.iter().map(|r| g.image_requests(r)[0].full_prompt()).collect();
 
-    for key in ["Кадр:", "Поворот:", "Момент съёмки:", "Кто и чем снимал:", "Цвет одежды:"] {
+    for key in ["Person:", "Wearing:", "Expression:", "Where:", "Shot:"] {
         assert!(prompts.iter().all(|p| p.contains(key)), "в промпте нет «{key}»");
     }
-    assert!(!prompts[0].contains("Погрудный кадр, взгляд в камеру"), "старый шаблон вернулся");
-    assert!(prompts[0].contains("тонировк"), "нет запрета на тонировку");
+    assert!(prompts[0].contains("No retouching"), "нет запрета на ретушь");
+    assert!(prompts[0].len() < 1600, "промпт снова раздулся: {} знаков", prompts[0].len());
 
     let distinct = |label: &str| {
         prompts
@@ -741,9 +741,8 @@ fn portrait_prompts_vary_composition_and_ban_the_ai_look() {
             .collect::<std::collections::HashSet<_>>()
             .len()
     };
-    assert!(distinct("Поворот:") >= 4, "повороты однообразны");
-    assert!(distinct("Кадр:") >= 3, "кадры однообразны");
-    assert!(distinct("Выражение лица:") >= 5, "выражения однообразны");
+    assert!(distinct("Shot:") >= 10, "кадры однообразны");
+    assert!(distinct("Expression:") >= 5, "выражения однообразны");
 
     println!("{}", prompts[0]);
 }
