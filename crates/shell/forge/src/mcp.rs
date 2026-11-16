@@ -424,7 +424,7 @@ impl Server {
 
         let catalog = synthforge_llm::Catalog::load("config/model-catalog.json").map_err(|e| e.to_string())?;
         let per_image = catalog
-            .get(crate::IMAGE_MODEL)
+            .get(&crate::image_model())
             .ok()
             .and_then(|m| m.per_image)
             .unwrap_or(0.04);

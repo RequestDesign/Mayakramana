@@ -36,7 +36,15 @@ use synthforge_ports::{GenSpec, Generator};
 use synthforge_store::{NewAnnotation, Store, Target};
 
 const TEXT_MODEL: &str = "grok-4-fast";
-const IMAGE_MODEL: &str = "gpt-image-1";
+/// Модель снимков: `IMAGE_MODEL` из окружения, по умолчанию `gpt-image-2`.
+/// Модель должна быть в каталоге — иначе клиент не создастся и расход не
+/// посчитается.
+pub(crate) fn image_model() -> String {
+    std::env::var("IMAGE_MODEL")
+        .ok()
+        .filter(|m| !m.trim().is_empty())
+        .unwrap_or_else(|| "gpt-image-2".to_string())
+}
 /// Куда складываются результаты: `out/` или каталог из `SYNTHFORGE_OUT`.
 /// Отдельный каталог нужен, чтобы черновые прогоны (модели v2) не смешивались
 /// с рабочими данными, из которых собираются центры.
@@ -362,7 +370,7 @@ fn image_pipeline(store: Store, catalog: Arc<Catalog>) -> Result<ImagePipeline, 
     let proxy = std::env::var("OUTBOUND_PROXY").ok().filter(|p| !p.trim().is_empty());
     let key = std::env::var("OPENAI_API_KEY").map_err(|_| "не задан OPENAI_API_KEY")?;
     let model = Arc::new(OpenAiImages::new(
-        ProviderConfig::openai(&key, IMAGE_MODEL).with_proxy(proxy),
+        ProviderConfig::openai(&key, &image_model()).with_proxy(proxy),
         catalog,
     )?);
     let assets = Arc::new(FsAssetStore::new(OUT_DIR));
@@ -831,7 +839,7 @@ async fn cmd_photos(args: &[String]) -> R {
     let catalog = Arc::new(Catalog::load("config/model-catalog.json")?);
     let key = std::env::var("OPENAI_API_KEY").map_err(|_| "не задан OPENAI_API_KEY")?;
     let proxy = std::env::var("OUTBOUND_PROXY").ok().filter(|p| !p.trim().is_empty());
-    let model = OpenAiImages::new(ProviderConfig::openai(&key, IMAGE_MODEL).with_proxy(proxy), catalog)?;
+    let model = OpenAiImages::new(ProviderConfig::openai(&key, &image_model()).with_proxy(proxy), catalog)?;
     let assets = FsAssetStore::new(OUT_DIR);
 
     let map_path = format!("{OUT_DIR}/photos.json");
