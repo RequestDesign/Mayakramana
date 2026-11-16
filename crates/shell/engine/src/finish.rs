@@ -12,39 +12,75 @@
 //!    по одному шаблону;
 //! 4. размер веб-фотографии и лёгкое смягчение — уходит гиперрезкость;
 //! 5. шум сенсора и сжатие JPEG — как у файла с телефона или фотоаппарата.
+//!
+//! Сила каждого шага своя у каждого снимка (по ключу): у настоящих фото на
+//! одной странице разная техника — один файл чистый, другой мыльный и
+//! пережатый, у третьего остался жёлтый свет ламп. Одинаково «обработанная»
+//! серия выдаёт генерацию не хуже одинаковых лиц (живой прогон 16.11).
 
 use image::{imageops, DynamicImage, ImageBuffer, Rgb};
 use rand::{Rng, SeedableRng};
 
 /// Длинная сторона готового снимка: размер фото на странице специалиста.
 const LONG_SIDE: u32 = 1100;
-/// Насколько тянуть к нейтральному балансу (1.0 — полностью).
-const WB_STRENGTH: f32 = 0.8;
-const SATURATION: f32 = 0.9;
-const NOISE_SIGMA: f32 = 3.0;
-const JPEG_QUALITY: u8 = 82;
+
+/// Характер файла: у каждого снимка свой, но постоянный для ключа.
+struct Look {
+    /// Насколько тянуть к нейтральному балансу (1.0 — полностью). Не до
+    /// конца: свет ламп или окна, заданный промптом, должен частично остаться.
+    wb: f32,
+    saturation: f32,
+    /// Гамма: чуть темнее или светлее, как у автоэкспозиции телефона.
+    gamma: f32,
+    blur: f32,
+    noise: f32,
+    jpeg: u8,
+    /// Доля размера, до которой снимок ужимается и растягивается обратно:
+    /// мыльная картинка дешёвого телефона или пересланного файла.
+    mush: Option<f32>,
+}
+
+impl Look {
+    fn for_seed(seed: u64) -> Self {
+        let mut r = rand::rngs::StdRng::seed_from_u64(seed ^ 0x9e37_79b9_7f4a_7c15);
+        let mut span = |a: f32, b: f32| a + (b - a) * r.gen::<f32>();
+        let wb = span(0.45, 0.85);
+        let saturation = span(0.82, 0.98);
+        let gamma = span(0.9, 1.1);
+        let blur = span(0.35, 0.95);
+        let noise = span(2.0, 6.5);
+        let jpeg = span(62.0, 88.0) as u8;
+        let mush = if span(0.0, 1.0) < 0.3 { Some(span(0.5, 0.72)) } else { None };
+        Self { wb, saturation, gamma, blur, noise, jpeg, mush }
+    }
+}
 
 /// Довести снимок. `key` задаёт кадрирование и шум: у одной сущности они
 /// одинаковы при повторной обработке, у разных — разные.
 pub fn finish_photo(bytes: &[u8], key: &str) -> Result<Vec<u8>, image::ImageError> {
     let mut img = image::load_from_memory(bytes)?.to_rgb8();
     let seed = fnv(key);
+    let look = Look::for_seed(seed);
 
-    neutralize(&mut img);
+    neutralize(&mut img, &look);
     let img = crop(&img, seed);
     let img = resize(&img);
-    let mut img = imageops::blur(&img, 0.45);
-    add_noise(&mut img, seed);
+    let img = match look.mush {
+        Some(k) => mush(&img, k),
+        None => img,
+    };
+    let mut img = imageops::blur(&img, look.blur);
+    add_noise(&mut img, seed, look.noise);
 
     let mut out = std::io::Cursor::new(Vec::new());
-    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, JPEG_QUALITY)
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, look.jpeg)
         .encode_image(&DynamicImage::ImageRgb8(img))?;
     Ok(out.into_inner())
 }
 
 /// Серый мир: средний цвет кадра должен быть нейтральным. Тянем каналы к нему
 /// не до конца — у настоящих снимков свет тоже бывает тёплым или холодным.
-fn neutralize(img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>) {
+fn neutralize(img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>, look: &Look) {
     let n = (img.width() as f64 * img.height() as f64).max(1.0);
     let mut sum = [0f64; 3];
     for p in img.pixels() {
@@ -54,7 +90,7 @@ fn neutralize(img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>) {
     }
     let mean = sum.map(|s| (s / n) as f32);
     let grey = (mean[0] + mean[1] + mean[2]) / 3.0;
-    let gain = mean.map(|m| 1.0 + WB_STRENGTH * (grey / m.max(1.0) - 1.0));
+    let gain = mean.map(|m| 1.0 + look.wb * (grey / m.max(1.0) - 1.0));
 
     for p in img.pixels_mut() {
         let mut c = [0f32; 3];
@@ -63,7 +99,8 @@ fn neutralize(img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>) {
         }
         let l = (c[0] + c[1] + c[2]) / 3.0;
         for i in 0..3 {
-            p.0[i] = (l + (c[i] - l) * SATURATION).clamp(0.0, 255.0) as u8;
+            let v = (l + (c[i] - l) * look.saturation).clamp(0.0, 255.0) / 255.0;
+            p.0[i] = (v.powf(look.gamma) * 255.0) as u8;
         }
     }
 }
@@ -92,13 +129,25 @@ fn resize(img: &ImageBuffer<Rgb<u8>, Vec<u8>>) -> ImageBuffer<Rgb<u8>, Vec<u8>> 
     imageops::resize(img, (w as f32 * k) as u32, (h as f32 * k) as u32, imageops::FilterType::Lanczos3)
 }
 
+/// Ужать и растянуть обратно: детали теряются так, как у дешёвой камеры.
+fn mush(img: &ImageBuffer<Rgb<u8>, Vec<u8>>, k: f32) -> ImageBuffer<Rgb<u8>, Vec<u8>> {
+    let (w, h) = img.dimensions();
+    let small = imageops::resize(
+        img,
+        ((w as f32 * k) as u32).max(1),
+        ((h as f32 * k) as u32).max(1),
+        imageops::FilterType::Triangle,
+    );
+    imageops::resize(&small, w, h, imageops::FilterType::Triangle)
+}
+
 /// Яркостный шум: на стерильно чистом файле его отсутствие заметнее, чем
 /// кажется.
-fn add_noise(img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>, seed: u64) {
+fn add_noise(img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>, seed: u64, sigma: f32) {
     let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
     for p in img.pixels_mut() {
         // Сумма трёх равномерных ≈ нормальное распределение.
-        let n: f32 = (rng.gen::<f32>() + rng.gen::<f32>() + rng.gen::<f32>() - 1.5) * NOISE_SIGMA * 2.0;
+        let n: f32 = (rng.gen::<f32>() + rng.gen::<f32>() + rng.gen::<f32>() - 1.5) * sigma * 2.0;
         for c in p.0.iter_mut() {
             *c = (*c as f32 + n).clamp(0.0, 255.0) as u8;
         }
@@ -119,7 +168,8 @@ fn fnv(s: &str) -> u64 {
 mod tests {
     use super::*;
 
-    /// Снимок с сильной жёлтой тонировкой после доводки почти нейтрален.
+    /// Сильная жёлтая тонировка после доводки заметно ослабевает (не до нуля:
+    /// часть света сцены остаётся намеренно).
     #[test]
     fn warm_cast_is_neutralized() {
         let img = ImageBuffer::from_fn(400, 600, |x, y| {
@@ -136,7 +186,7 @@ mod tests {
         let n = (back.width() * back.height()) as f64;
         let mean: Vec<f64> = (0..3).map(|c| back.pixels().map(|p| p.0[c] as f64).sum::<f64>() / n).collect();
         let spread = mean.iter().cloned().fold(f64::MIN, f64::max) - mean.iter().cloned().fold(f64::MAX, f64::min);
-        assert!(spread < 12.0, "тонировка осталась: средние каналы {mean:?}");
+        assert!(spread < 30.0, "тонировка осталась: средние каналы {mean:?}");
         let (w, h) = back.dimensions();
         assert!((h as f32 / w as f32 - 1.25).abs() < 0.02, "кадр 4:5, получилось {w}×{h}");
     }
@@ -150,5 +200,18 @@ mod tests {
         let b = crop(&img, fnv("doctor:2"));
         assert_eq!(a1.as_raw(), a2.as_raw());
         assert_ne!(a1.as_raw(), b.as_raw());
+    }
+
+    /// У разных снимков разный характер файла, у одного — всегда один.
+    #[test]
+    fn look_differs_between_entities() {
+        let a = Look::for_seed(fnv("doctor:1#portrait"));
+        let a2 = Look::for_seed(fnv("doctor:1#portrait"));
+        assert_eq!(a.jpeg, a2.jpeg);
+        let jpegs: std::collections::HashSet<u8> =
+            (0..20).map(|i| Look::for_seed(fnv(&format!("doctor:{i}#portrait"))).jpeg).collect();
+        assert!(jpegs.len() > 5, "сжатие одинаковое у всех: {jpegs:?}");
+        let mushy = (0..100).filter(|i| Look::for_seed(fnv(&format!("p:{i}"))).mush.is_some()).count();
+        assert!((15..=45).contains(&mushy), "мыльных снимков {mushy} из 100");
     }
 }

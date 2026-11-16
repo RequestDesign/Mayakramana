@@ -672,6 +672,35 @@ fn load_pool(collection: &str) -> Vec<synthforge_compose_center::Candidate> {
         .collect()
 }
 
+/// Параметры съёмки — то, что относится к снимку, а не к человеку.
+const SHOT_PARAMS: &[&str] = &[
+    "expression", "photo_setting", "photo_quality", "framing", "head_angle",
+    "frame_position", "moment", "gaze", "camera", "clothing_color", "light",
+    "photo_flaws", "posture", "accessory",
+];
+
+/// Заново разыграть параметры съёмки по текущему словарю вида — с его
+/// весами и правилами, — оставив всё остальное (лицо, возраст, волосы).
+fn reshoot_row(
+    mut row: synthforge_params::ParamRow,
+    kind: &str,
+    key: &str,
+    n: u64,
+) -> Result<synthforge_params::ParamRow, Box<dyn std::error::Error>> {
+    let model = ParamModel::load(dictionary_path(kind))?;
+    let mut seed = 0xcbf2_9ce4_8422_2325u64;
+    for b in key.bytes().chain(n.to_le_bytes()) {
+        seed = (seed ^ b as u64).wrapping_mul(0x100_0000_01b3);
+    }
+    let fresh = synthforge_params::Sampler::new(&model, seed).sample_row(&[])?;
+    for p in SHOT_PARAMS {
+        if let Some(v) = fresh.get(p) {
+            row.set(*p, v.clone());
+        }
+    }
+    Ok(row)
+}
+
 /// Собрать центры из того, что уже сгенерировано.
 ///
 /// Ничего не сочиняет: здание, программа, руководитель и команда берутся из
@@ -828,6 +857,12 @@ async fn cmd_photos(args: &[String]) -> R {
     use synthforge_ports::{AssetStore, ImageModel};
 
     let limit: usize = arg(args, 1).and_then(|s| s.parse().ok()).unwrap_or(1);
+    // --reshoot [N]: переснять уже снятых людей, заново разыграв параметры
+    // съёмки (кадр, свет, взгляд, выражение, огрехи); внешность прежняя.
+    // N — номер пересъёмки: другой N даёт другой расклад.
+    let reshoot: Option<u64> = args.iter().position(|a| a == "--reshoot").map(|i| {
+        args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(1)
+    });
 
     let pools: std::collections::HashMap<String, serde_json::Value> =
         ["places", "programs", "directors", "doctors", "psychologists", "consultants"]
@@ -864,7 +899,7 @@ async fn cmd_photos(args: &[String]) -> R {
         );
 
         for k in keys {
-            if map.contains_key(&k) {
+            if map.contains_key(&k) && (reshoot.is_none() || k.starts_with("place:")) {
                 continue; // уже снято — второй раз не платим
             }
             let Some(rec) = pools.get(&k) else { continue };
@@ -888,6 +923,11 @@ async fn cmd_photos(args: &[String]) -> R {
                         .map(|pv| (k.clone(), pv))
                 })
                 .collect();
+
+            let row = match reshoot {
+                Some(n) if !k.starts_with("place:") => reshoot_row(row, &kind, &k, n)?,
+                _ => row,
+            };
 
             let mut shots = Vec::new();
             // Снимки сущности идут по порядку, поэтому опора (фасад) к моменту
