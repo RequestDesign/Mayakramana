@@ -356,7 +356,13 @@ impl Generator for PersonGenerator {
                 .map(|v| v.render())
                 .filter(|v| !prompt::is_empty_visual(v))
         };
-        vec![ImageRequest::new(prompt::portrait_prompt_short(&get))
+        // PORTRAIT_PROMPT=phone — «телефонный» снимок коллеги (прошлый вариант).
+        let text = if std::env::var("PORTRAIT_PROMPT").as_deref() == Ok("phone") {
+            prompt::portrait_prompt_short(&get)
+        } else {
+            prompt::portrait_prompt_studio(&get)
+        };
+        vec![ImageRequest::new(text)
             .role("portrait")
             .size(ImageSize::Portrait)]
     }

@@ -93,7 +93,7 @@ fn text_and_image_prompts_do_not_share_facts() {
     assert!(!img.prompt.contains("Стаж"), "биография в промпте портрета");
 
     // Ограничения — короткой общей строкой в самом промпте.
-    assert!(img.full_prompt().contains("No retouching"));
+    assert!(img.full_prompt().contains("no plastic skin"));
 }
 
 #[test]
@@ -719,20 +719,19 @@ fn director_v2_years_before_field_are_legitimate() {
     assert!(r.is_ok(), "{r:?}");
 }
 
-/// Портреты серии не должны сниматься по одному шаблону: кадр, поворот,
-/// момент, техника и цвет одежды приходят параметрами, а шаблон больше не
-/// требует у всех «погрудный кадр, взгляд в камеру».
+/// Портреты — одна студийная серия (фон, свет, кадр общие), но люди, поза
+/// и выражение у всех разные.
 #[test]
 fn portrait_prompts_vary_composition_and_ban_the_ai_look() {
     let g = generator();
     let rows = g.plan(&GenSpec::new(40).seed(12)).unwrap();
     let prompts: Vec<String> = rows.iter().map(|r| g.image_requests(r)[0].full_prompt()).collect();
 
-    for key in ["Person:", "Wearing:", "Expression:", "Where:", "Shot:"] {
+    for key in ["Person:", "Wearing:", "Pose:", "Expression:", "Setting:"] {
         assert!(prompts.iter().all(|p| p.contains(key)), "в промпте нет «{key}»");
     }
-    assert!(prompts[0].contains("No retouching"), "нет запрета на ретушь");
-    assert!(prompts[0].len() < 1600, "промпт снова раздулся: {} знаков", prompts[0].len());
+    assert!(prompts[0].contains("no plastic skin"), "нет запрета на пластиковую кожу");
+    assert!(prompts[0].len() < 1900, "промпт снова раздулся: {} знаков", prompts[0].len());
 
     let distinct = |label: &str| {
         prompts
@@ -741,7 +740,8 @@ fn portrait_prompts_vary_composition_and_ban_the_ai_look() {
             .collect::<std::collections::HashSet<_>>()
             .len()
     };
-    assert!(distinct("Shot:") >= 10, "кадры однообразны");
+    assert!(distinct("Pose:") >= 4, "позы однообразны");
+    assert!(distinct("Person:") >= 20, "люди однообразны");
     assert!(distinct("Expression:") >= 5, "выражения однообразны");
 
     println!("{}", prompts[0]);

@@ -356,3 +356,73 @@ pub fn is_empty_visual(v: &str) -> bool {
     let v = v.trim();
     v.is_empty() || matches!(v, "нет" | "ничего" | "без заметных огрехов" | "без очков")
 }
+
+const STUDIO_POSES: &[&str] = &[
+    "sitting sideways on the chair, forearms resting on the chair back, hands loosely clasped, body turned three-quarters to the camera",
+    "sitting sideways on the chair, one arm on the chair back, the other hand on the knee, shoulders relaxed",
+    "sitting on the chair turned slightly to the side, hands crossed on the knee, back straight but not stiff",
+    "sitting turned three-quarters, leaning slightly forward, hands folded on the chair back, head tilted a little",
+    "sitting on the chair at a slight angle, hands resting together in the lap, relaxed posture",
+];
+
+const STUDIO_EXPRESSIONS: &[&str] = &[
+    "calm, friendly face with a slight closed-mouth smile",
+    "gentle warm smile, kind eyes",
+    "calm, confident neutral expression, attentive kind eyes",
+    "soft smile, eyes smiling a little",
+    "light polite smile, composed and approachable",
+];
+
+/// Студийный портрет «как на сайте клиники»: персонал подготовился к
+/// съёмке, фотограф снимает всех одинаково (серый фон, белый стул, мягкий
+/// свет). Разнообразие — в людях, позе и выражении, а не в огрехах кадра.
+pub fn portrait_prompt_studio(get: &dyn Fn(&str) -> Option<String>) -> String {
+    let join = |keys: &[(&str, &str)]| -> String {
+        keys.iter()
+            .filter_map(|(k, label)| {
+                get(k).map(|v| if label.is_empty() { v } else { format!("{label} {v}") })
+            })
+            .collect::<Vec<_>>()
+            .join("; ")
+    };
+    let sex = get("gender").unwrap_or_default();
+    let age = get("age").unwrap_or_default();
+    let looks = join(&[
+        ("build", "телосложение"),
+        ("face_shape", "лицо"),
+        ("hair_color", "волосы"),
+        ("facial_hair", "на лице"),
+        ("glasses", ""),
+    ]);
+    let clothing = join(&[("clothing", ""), ("clothing_color", "цвет")]);
+
+    // Поза и выражение — от внешности: у одного человека всегда одни.
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in format!("{sex}{age}{looks}{clothing}").bytes() {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x100_0000_01b3);
+    }
+    let pose = STUDIO_POSES[(h % STUDIO_POSES.len() as u64) as usize];
+    let expr = STUDIO_EXPRESSIONS[((h >> 16) % STUDIO_EXPRESSIONS.len() as u64) as usize];
+
+    format!(
+        "Professional studio portrait of a staff member of a Russian private \
+         rehabilitation clinic, for the \"Our specialists\" page of its website. \
+         Part of one team photoshoot: every staff member photographed the same way \
+         by the same photographer.\n\n\
+         Person: {sex}, {age} years old. Looks (in Russian): {looks}.\n\
+         Wearing: {clothing}; neat, clean and ironed, a small name badge on the chest.\n\
+         Pose: {pose}, looking into the camera.\n\
+         Expression: {expr}.\n\n\
+         Setting: plain light grey studio backdrop, a strip of light wooden floor at \
+         the bottom, a white wooden chair. Soft, even, diffused light from a large \
+         softbox at the side, gentle shadows. Vertical frame from the knees up, a \
+         little space above the head. Eye-level camera, 85mm lens, background \
+         softly out of focus.\n\n\
+         A real photo by a professional photographer: the person prepared for the \
+         shoot, tidy hair, well-groomed, light natural makeup for women. Natural \
+         skin texture with pores and fine lines true to age, true-to-life colors, \
+         only light professional retouching. Not a glamour or fashion shot: no \
+         plastic skin, no HDR, no dramatic lighting. One person, no readable text."
+    )
+}

@@ -58,6 +58,29 @@ impl Look {
         let smooth = span(0.35, 0.6);
         Self { wb, saturation, gamma, blur, noise, jpeg, mush, smooth }
     }
+
+    /// Студийная съёмка фотографом: чистый файл, почти без шума и мыла.
+    /// Остаётся только лёгкое сглаживание фактуры (против «HDR-кожи»).
+    fn clean(seed: u64) -> Self {
+        let mut r = rand::rngs::StdRng::seed_from_u64(seed ^ 0x9e37_79b9_7f4a_7c15);
+        let mut span = |a: f32, b: f32| a + (b - a) * r.gen::<f32>();
+        Self {
+            wb: span(0.8, 0.95),
+            saturation: span(0.97, 1.0),
+            gamma: span(0.98, 1.02),
+            blur: 0.0,
+            noise: span(0.4, 0.9),
+            jpeg: 92,
+            mush: None,
+            smooth: span(0.15, 0.25),
+        }
+    }
+}
+
+/// PHOTO_STYLE=phone — прежняя «телефонная» доводка (шум, мыло, сжатие).
+/// По умолчанию — чистая, как у снимков фотографа.
+fn phone_style() -> bool {
+    std::env::var("PHOTO_STYLE").as_deref() == Ok("phone")
 }
 
 /// Довести снимок. `key` задаёт кадрирование и шум: у одной сущности они
@@ -65,7 +88,7 @@ impl Look {
 pub fn finish_photo(bytes: &[u8], key: &str) -> Result<Vec<u8>, image::ImageError> {
     let mut img = image::load_from_memory(bytes)?.to_rgb8();
     let seed = fnv(key);
-    let look = Look::for_seed(seed);
+    let look = if phone_style() { Look::for_seed(seed) } else { Look::clean(seed) };
 
     neutralize(&mut img, &look);
     let img = crop(&img, seed);
@@ -75,7 +98,7 @@ pub fn finish_photo(bytes: &[u8], key: &str) -> Result<Vec<u8>, image::ImageErro
         None => img,
     };
     let img = phone_smooth(&img, look.smooth);
-    let mut img = imageops::blur(&img, look.blur);
+    let mut img = if look.blur > 0.0 { imageops::blur(&img, look.blur) } else { img };
     add_noise(&mut img, seed, look.noise);
 
     let mut out = std::io::Cursor::new(Vec::new());
