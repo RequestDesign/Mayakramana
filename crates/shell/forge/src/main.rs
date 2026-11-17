@@ -865,6 +865,9 @@ async fn cmd_photos(args: &[String]) -> R {
     });
     // --max N: снять не больше N сущностей — пробный прогон на нескольких.
     let max_entities: Option<usize> = flag(args, "--max").and_then(|s| s.parse().ok());
+    // --only KIND: снимать только сущности этого вида (place, doctor, …).
+    // С --reshoot переснимает и уже снятые дома.
+    let only: Option<String> = flag(args, "--only");
     let mut shot_entities = 0usize;
 
     let pools: std::collections::HashMap<String, serde_json::Value> =
@@ -902,7 +905,11 @@ async fn cmd_photos(args: &[String]) -> R {
         );
 
         for k in keys {
-            if map.contains_key(&k) && (reshoot.is_none() || k.starts_with("place:")) {
+            if only.as_deref().is_some_and(|o| !k.starts_with(&format!("{o}:"))) {
+                continue;
+            }
+            let place_reshoot = only.as_deref() == Some("place");
+            if map.contains_key(&k) && (reshoot.is_none() || (k.starts_with("place:") && !place_reshoot)) {
                 continue; // уже снято — второй раз не платим
             }
             let Some(rec) = pools.get(&k) else { continue };

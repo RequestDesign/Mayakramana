@@ -67,23 +67,6 @@ const FORBIDDEN: &[&str] = &[
     "насильно",
 ];
 
-/// Для снимков объектов: всё, что превращает фото в рекламный буклет или
-/// выдаёт генерацию — открыточное небо, тёплая тонировка, сверхширокий угол,
-/// стерильные дорожки и газон.
-const SHOT_AVOID: &[&str] = &[
-    "рекламная глянцевая съёмка",
-    "перенасыщенные цвета и HDR",
-    "люди в кадре",
-    "текст, подписи, водяные знаки, логотипы",
-    "идеально пустой стерильный интерьер из каталога мебели",
-    "тёплая жёлтая или оранжевая тонировка, эффект плёнки",
-    "открыточное небо, золотой час, драматичные облака",
-    "архитектурная съёмка сверхшироким углом с искажением перспективы",
-    "вылизанный газон, идеально чистые дорожки, новенькие стены",
-    "вид с дрона и с высоты",
-    "симметричная парадная композиция",
-];
-
 pub struct ObjectGenerator {
     descriptor: EntityDescriptor,
     model: ParamModel,
@@ -142,8 +125,8 @@ impl ObjectGenerator {
             vec![
                 ShotSpec {
                     role: "facade",
-                    scene: "Фасад здания и вход: снято с дорожки или от ворот, с уровня глаз, \
-                            дом целиком или почти целиком, рядом обычные мелочи участка",
+                    scene: "The main building and its entrance, shot from the path or the gate \
+                            at eye level, the whole building or almost all of it in frame",
                     size: ImageSize::Landscape,
                     based_on: None,
                 },
@@ -151,8 +134,9 @@ impl ObjectGenerator {
                 // плохо — пытается перенести на него уличный вид.
                 ShotSpec {
                     role: "room",
-                    scene: "Жилая комната, где живут подопечные: снято от двери с уровня глаз, \
-                            видно, что здесь живут люди",
+                    scene: "A patient room (ward) inside the building, shot from the doorway at \
+                            eye level: neatly made beds with matching bed linen, bedside tables, \
+                            a wardrobe, a bright window with light curtains",
                     size: ImageSize::Landscape,
                     based_on: None,
                 },
@@ -160,7 +144,8 @@ impl ObjectGenerator {
                 // без опоры это был бы другой дом.
                 ShotSpec {
                     role: "territory",
-                    scene: "Территория вокруг этого же дома и ближайшее окружение, дом виден в кадре",
+                    scene: "The grounds around this same building, the building visible in the \
+                            frame: paths, benches, lawn, trees",
                     size: ImageSize::Landscape,
                     based_on: Some("facade"),
                 },
@@ -263,21 +248,39 @@ impl Generator for ObjectGenerator {
     }
 
     fn image_requests(&self, row: &ParamRow) -> Vec<ImageRequest> {
-        let visual = row.prompt_block(&self.model, PromptUsage::Visual);
+        // Только то, что видно на снимке. Техника съёмки, «следы жизни» и
+        // огрехи не передаются: снимки должны быть как на сайтах клиник —
+        // ухоженно и светло, а не потрёпанно (Андрей, 17.11).
+        const KEYS: &[&str] = &[
+            "building_type", "floors", "facade", "condition", "setting",
+            "room_type", "interior", "season", "weather",
+        ];
+        let place = KEYS
+            .iter()
+            .filter_map(|k| {
+                let v = row.get(k).filter(|v| !v.is_null())?.render();
+                let title = self.model.get(k).map(|p| p.title.clone()).unwrap_or_else(|| k.to_string());
+                Some(format!("{title}: {v}"))
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
         self.shots
             .iter()
             .map(|s| {
                 let mut r = ImageRequest::new(format!(
-                    "{}.\n\nОбычная фотография для сайта небольшого реабилитационного \
-                     центра — не рекламная и не архитектурная съёмка. Погода, свет, \
-                     техника и мелочи в кадре — строго по описанию ниже. Цвет как у \
-                     обычной камеры: нейтральный баланс белого, без тонировки. Обычный \
-                     угол обзора, без сверхширокого искажения.\n\n{visual}",
+                    "{}.\n\nPhoto for the website of a Russian private rehabilitation clinic, \
+                     taken by a hired photographer on a good day; the place was tidied up \
+                     for the shoot.\n\nThe place (in Russian):\n{place}\n\n\
+                     Bright, airy natural daylight, slightly high-key, clean neutral colors, \
+                     true-to-life materials. Eye level, 24-28mm lens, straight verticals. \
+                     Looks like a real photo of a real, well-kept place, not a 3D render or \
+                     an interior-magazine shot: no CGI look, no HDR, no oversaturated \
+                     colors, no dramatic sky, no drone view. No people, no readable text, \
+                     no logos.",
                     s.scene
                 ))
                 .role(s.role)
-                .size(s.size)
-                .avoid(SHOT_AVOID.iter().copied());
+                .size(s.size);
                 if let Some(base) = s.based_on {
                     r = r.based_on(base);
                 }
@@ -501,7 +504,7 @@ mod tests {
         let shots = g.image_requests(&row);
         let roles: Vec<&str> = shots.iter().map(|s| s.role.as_str()).collect();
         assert_eq!(roles, vec!["facade", "room", "territory"]);
-        assert!(shots.iter().all(|s| s.full_prompt().contains("люди в кадре")));
+        assert!(shots.iter().all(|s| s.full_prompt().contains("No people")));
     }
 
     /// Формулировки о принуждении отбраковываются: лечение добровольное.
@@ -526,10 +529,11 @@ mod tests {
         let g = place();
         let rows = g.plan(&GenSpec::new(30).seed(21)).unwrap();
         let prompts: Vec<String> = rows.iter().map(|r| g.image_requests(r)[0].full_prompt()).collect();
-        for key in ["Погода и время суток:", "Кто и чем снимал:", "Следы жизни:", "Неидеальности:"] {
+        for key in ["Погода и время суток:", "Время года на снимках:", "Состояние:"] {
             assert!(prompts.iter().all(|p| p.contains(key)), "в промпте нет «{key}»");
         }
-        assert!(prompts[0].contains("открыточное небо"), "нет запрета на открыточное небо");
+        assert!(prompts.iter().all(|p| !p.contains("Неидеальности:")), "огрехи снова в промпте");
+        assert!(prompts[0].contains("not a 3D render"), "нет запрета на рендер");
         let weathers: std::collections::HashSet<_> = prompts
             .iter()
             .filter_map(|p| p.lines().find(|l| l.starts_with("Погода и время суток:")))

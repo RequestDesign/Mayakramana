@@ -72,7 +72,7 @@ impl Look {
             noise: span(0.4, 0.9),
             jpeg: 92,
             mush: None,
-            smooth: span(0.15, 0.25),
+            smooth: span(0.05, 0.12),
         }
     }
 }

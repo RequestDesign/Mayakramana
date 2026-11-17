@@ -360,7 +360,7 @@ impl Generator for PersonGenerator {
         let text = if std::env::var("PORTRAIT_PROMPT").as_deref() == Ok("phone") {
             prompt::portrait_prompt_short(&get)
         } else {
-            prompt::portrait_prompt_studio(&get)
+            prompt::portrait_prompt_studio(&self.descriptor.kind, &get)
         };
         vec![ImageRequest::new(text)
             .role("portrait")
