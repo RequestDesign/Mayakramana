@@ -253,8 +253,10 @@ impl Generator for ObjectGenerator {
         // ухоженно и светло, а не потрёпанно (Андрей, 17.11).
         const KEYS: &[&str] = &[
             "building_type", "floors", "facade", "condition", "setting",
-            "room_type", "interior", "season", "weather",
+            "room_type", "interior", "season",
         ];
+        // Погода не из словаря: фотограф выбирает хороший день (Андрей —
+        // «как фотосессия»), серое небо делает снимок унылым.
         let place = KEYS
             .iter()
             .filter_map(|k| {
@@ -268,15 +270,17 @@ impl Generator for ObjectGenerator {
             .iter()
             .map(|s| {
                 let mut r = ImageRequest::new(format!(
-                    "{}.\n\nPhoto for the website of a Russian private rehabilitation clinic, \
-                     taken by a hired photographer on a good day; the place was tidied up \
-                     for the shoot.\n\nThe place (in Russian):\n{place}\n\n\
-                     Bright, airy natural daylight, slightly high-key, clean neutral colors, \
-                     true-to-life materials. Eye level, 24-28mm lens, straight verticals. \
-                     Looks like a real photo of a real, well-kept place, not a 3D render or \
-                     an interior-magazine shot: no CGI look, no HDR, no oversaturated \
-                     colors, no dramatic sky, no drone view. No people, no readable text, \
-                     no logos.",
+                    "{}.\n\nA professional photoshoot of a Russian private rehabilitation \
+                     clinic for its website: a hired real-estate photographer with a full-frame \
+                     camera on a tripod, on a fine sunny day; the place was tidied up for \
+                     the shoot.\n\nThe place (in Russian):\n{place}\n\n\
+                     Soft warm sunlight, clear blue sky with a few light clouds, fresh \
+                     colors; indoors — bright daylight from the window, light and cosy. \
+                     Eye level, 24-28mm lens, straight verticals. A clean, crisp, \
+                     noise-free image with smooth tones and natural detail, like a \
+                     well-processed real photo; not a 3D render: no CGI look, no HDR, no \
+                     grainy or oversharpened textures, no drone view. No people, no \
+                     readable text, no logos.",
                     s.scene
                 ))
                 .role(s.role)
@@ -522,23 +526,23 @@ mod tests {
         ));
     }
 
-    /// Снимки дома не должны выглядеть открыткой: погода, техника, следы
-    /// жизни и неидеальности приходят параметрами и у разных домов разные.
+    /// Снимки дома — фотосессия для сайта: ухоженно, хороший день, но не
+    /// рендер. Сезон у разных домов разный, огрехи съёмки не передаются.
     #[test]
     fn building_shots_are_not_postcards() {
         let g = place();
         let rows = g.plan(&GenSpec::new(30).seed(21)).unwrap();
         let prompts: Vec<String> = rows.iter().map(|r| g.image_requests(r)[0].full_prompt()).collect();
-        for key in ["Погода и время суток:", "Время года на снимках:", "Состояние:"] {
+        for key in ["Время года на снимках:", "Состояние:"] {
             assert!(prompts.iter().all(|p| p.contains(key)), "в промпте нет «{key}»");
         }
         assert!(prompts.iter().all(|p| !p.contains("Неидеальности:")), "огрехи снова в промпте");
         assert!(prompts[0].contains("not a 3D render"), "нет запрета на рендер");
-        let weathers: std::collections::HashSet<_> = prompts
+        let seasons: std::collections::HashSet<_> = prompts
             .iter()
-            .filter_map(|p| p.lines().find(|l| l.starts_with("Погода и время суток:")))
+            .filter_map(|p| p.lines().find(|l| l.starts_with("Время года на снимках:")))
             .collect();
-        assert!(weathers.len() >= 4, "погода однообразна: {weathers:?}");
+        assert!(seasons.len() >= 3, "сезон однообразен: {seasons:?}");
     }
 
     /// Фасад и территория — один и тот же дом: территория снимается с опорой

@@ -23,6 +23,8 @@ use rand::{Rng, SeedableRng};
 
 /// Длинная сторона готового снимка: размер фото на странице специалиста.
 const LONG_SIDE: u32 = 1100;
+/// Снимки здания крупнее: на странице центра это большая галерея.
+const PLACE_LONG_SIDE: u32 = 1600;
 
 /// Характер файла: у каждого снимка свой, но постоянный для ключа.
 struct Look {
@@ -88,6 +90,18 @@ fn phone_style() -> bool {
 pub fn finish_photo(bytes: &[u8], key: &str) -> Result<Vec<u8>, image::ImageError> {
     let mut img = image::load_from_memory(bytes)?.to_rgb8();
     let seed = fnv(key);
+
+    // Здание и комнаты — «фотосессия»: без шума, без серого мира (на траве и
+    // небе он тянет цвета в грязь), без обрезки, крупнее. Только размер и
+    // лёгкое сглаживание зернистой фактуры, которую рисует модель.
+    if is_place_shot(key) && !phone_style() {
+        let img = resize_to(&img, PLACE_LONG_SIDE);
+        let img = phone_smooth(&img, 0.12);
+        let mut out = std::io::Cursor::new(Vec::new());
+        image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, 93)
+            .encode_image(&DynamicImage::ImageRgb8(img))?;
+        return Ok(out.into_inner());
+    }
     let look = if phone_style() { Look::for_seed(seed) } else { Look::clean(seed) };
 
     neutralize(&mut img, &look);
@@ -149,12 +163,21 @@ fn crop(img: &ImageBuffer<Rgb<u8>, Vec<u8>>, seed: u64) -> ImageBuffer<Rgb<u8>, 
 }
 
 fn resize(img: &ImageBuffer<Rgb<u8>, Vec<u8>>) -> ImageBuffer<Rgb<u8>, Vec<u8>> {
+    resize_to(img, LONG_SIDE)
+}
+
+/// Снимок здания, комнаты или территории (роль после «#» в ключе).
+fn is_place_shot(key: &str) -> bool {
+    matches!(key.rsplit('#').next(), Some("facade" | "room" | "territory"))
+}
+
+fn resize_to(img: &ImageBuffer<Rgb<u8>, Vec<u8>>, side: u32) -> ImageBuffer<Rgb<u8>, Vec<u8>> {
     let (w, h) = img.dimensions();
     let long = w.max(h);
-    if long <= LONG_SIDE {
+    if long <= side {
         return img.clone();
     }
-    let k = LONG_SIDE as f32 / long as f32;
+    let k = side as f32 / long as f32;
     imageops::resize(img, (w as f32 * k) as u32, (h as f32 * k) as u32, imageops::FilterType::Lanczos3)
 }
 
